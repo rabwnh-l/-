@@ -394,7 +394,36 @@
         </div>
     </div>
 
-    <script src="app.js"></script>
+    <script type="module">
+  // 1. Load the Firebase Tools
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+  import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+  // 2. Your Project Credentials
+  const firebaseConfig = {
+    apiKey: "AIzaSyChbxpNHFL31MdNfaHS1SCyUarFPHprhEQ",
+    authDomain: "dream-okey.firebaseapp.com",
+    databaseURL: "https://dream-okey-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "dream-okey",
+    storageBucket: "dream-okey.firebasestorage.app",
+    messagingSenderId: "929206101210",
+    appId: "1:929206101210:web:694b189432686ce0c2b1e3"
+  };
+
+  // 3. Start Firebase
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  // 4. THE LIVE PART: This looks at a folder named 'status' in your database
+  const liveRef = ref(db, 'status');
+  onValue(liveRef, (snapshot) => {
+    const value = snapshot.val();
+    if (value) {
+      alert("Firebase says: " + value);
+    }
+  });
+</script>
+
 </body>
 
 </html>
