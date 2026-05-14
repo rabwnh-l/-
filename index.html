@@ -395,6 +395,46 @@
     </div>
 
     <script src="app.js"></script>
+    <script type="module">
+  // 1. Import the Firebase tools
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
+  import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-database.js";
+
+  // 2. Your specific configuration from the screenshot
+  const firebaseConfig = {
+    apiKey: "AIzaSyChbxpNHFL3lMdNfaHSLScyUarFPHprhEQ",
+    authDomain: "dream-okey.firebaseapp.com",
+    databaseURL: "https://dream-okey-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "dream-okey",
+    storageBucket: "dream-okey.firebasestorage.app",
+    messagingSenderId: "929206101210",
+    appId: "1:929206101210:web:e948bbb1e8a52a7dc2b1e3",
+    measurementId: "G-0451B682FE"
+  };
+
+  // 3. Initialize Firebase & Database
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  // --- USEFUL FUNCTIONS FOR YOUR APP ---
+
+  // Function to change data (call this when a button is clicked)
+  window.sendData = (path, value) => {
+    set(ref(db, path), value);
+  };
+
+  // Listener to get live updates
+  // This looks at a folder called 'gameStats' in your database
+  onValue(ref(db, 'gameStats'), (snapshot) => {
+    const data = snapshot.val();
+    console.log("Database updated!", data);
+    
+    // Example: If you have an element with ID 'score', it updates automatically
+    if(data && data.score) {
+        document.getElementById('score').innerText = data.score;
+    }
+  });
+</script>
 </body>
 
 </html>
