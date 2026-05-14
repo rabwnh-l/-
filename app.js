@@ -797,13 +797,14 @@ function checkAuth() {
 function showAdminLogin() {
     document.getElementById('loginOptions').style.display = 'none';
     document.getElementById('adminLoginForm').style.display = 'flex';
-    document.querySelector('.login-subtitle').textContent = "Enter Admin Credentials";
+    document.querySelector('.login-title').textContent = "زانیارییەکانی ئەدمین بنووسە";
 }
 
 function showLoginOptions() {
     document.getElementById('loginOptions').style.display = 'flex';
     document.getElementById('adminLoginForm').style.display = 'none';
-    document.querySelector('.login-subtitle').textContent = "Choose access level to continue";
+    document.querySelector('.login-title').textContent = "چوونە ناو کێبڕکێ";
+    document.querySelector('.login-subtitle').textContent = "ئاستی چوونە ناو دیاری بکە بۆ بەردەوامبوون";
 }
 
 function handleAdminLogin() {
@@ -817,9 +818,9 @@ function handleAdminLogin() {
         document.getElementById('loginScreen').style.display = 'none';
         document.getElementById('btnLogout').style.display = 'flex';
         applyPermissions();
-        showToast("Welcome, Admin!");
+        showToast("بەخێربێی، ئەدمین!");
     } else {
-        error.textContent = "Invalid username or password";
+        error.textContent = "ناوی بەکارهێنەر یان وشەی نهێنی هەڵەیە";
         setTimeout(() => { error.textContent = ""; }, 3000);
     }
 }
@@ -830,7 +831,7 @@ function handleViewerLogin() {
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('btnLogout').style.display = 'flex';
     applyPermissions();
-    showToast("Logged in as Viewer");
+    showToast("چوویتە ناو وەک بینەر");
 }
 
 function handleLogout() {

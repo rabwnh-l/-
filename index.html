@@ -20,8 +20,8 @@
     <!-- LOGIN SCREEN -->
     <div id="loginScreen" class="login-overlay">
         <div class="login-box">
-            <h2 class="login-title">Competition Login</h2>
-            <p class="login-subtitle">Choose access level to continue</p>
+            <h2 class="login-title">چوونە ناو کێبڕکێ</h2>
+            <p class="login-subtitle">ئاستی چوونە ناو دیاری بکە بۆ بەردەوامبوون</p>
 
             <div id="loginOptions" class="login-form">
                 <button class="action-btn login-btn" onclick="showAdminLogin()">
@@ -29,7 +29,7 @@
                         style="margin-right:8px">
                         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                     </svg>
-                    Log in as Admin
+                    چوونە ناو وەک ئەدمین
                 </button>
                 <button class="action-btn reset-btn" onclick="handleViewerLogin()"
                     style="background:var(--surface2);border:1px solid rgba(0,0,0,0.1)">
@@ -38,18 +38,18 @@
                         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                         <circle cx="12" cy="12" r="3" />
                     </svg>
-                    Log in as Viewer
+                    چوونە ناو وەک بینەر
                 </button>
             </div>
 
             <div id="adminLoginForm" class="login-form" style="display:none">
-                <input type="text" id="loginUser" placeholder="Username" autocomplete="off">
-                <input type="password" id="loginPass" placeholder="Password">
+                <input type="text" id="loginUser" placeholder="ناوی بەکارهێنەر" autocomplete="off">
+                <input type="password" id="loginPass" placeholder="وشەی نهێنی">
                 <div style="display:flex;gap:8px">
                     <button class="action-btn reset-btn" onclick="showLoginOptions()"
-                        style="flex:1;margin-bottom:0">Back</button>
+                        style="flex:1;margin-bottom:0">گەڕانەوە</button>
                     <button class="action-btn login-btn" onclick="handleAdminLogin()"
-                        style="flex:2;margin-bottom:0">Login</button>
+                        style="flex:2;margin-bottom:0">چوونە ناو</button>
                 </div>
             </div>
 
@@ -165,14 +165,17 @@
         </div>
         <div
             style="margin: 24px 0; padding: 16px; background: var(--surface3); border-radius: 16px; font-size: 11px; line-height: 1.4; color: var(--text2);">
-            <div style="font-weight: 800; margin-bottom: 8px; color: var(--text); text-align: center;">سیستەمی خاڵەکان:</div>
+            <div style="font-weight: 800; margin-bottom: 8px; color: var(--text); text-align: center;">سیستەمی خاڵەکان:
+            </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; text-align: right;">
                 <span>🥇 یەکەم: 15 خاڵ</span> <span>🥈 دووەم: 10 خاڵ</span> <span>🥉 سێیەم: 8 خاڵ</span>
                 <span>چوارەم: 6 خاڵ</span> <span>پێنجەم: 4 خاڵ</span> <span>شەشەم: 3 خاڵ</span>
                 <span>حەوتەم: 2 خاڵ</span> <span>هەشتەم: 1 خاڵ</span> <span>نۆیەم: 0 خاڵ</span>
             </div>
         </div>
-        <p style="color: var(--red); font-weight: 800; font-size: 11px; text-align: center; margin-top: 8px; padding-bottom: 40px; opacity: 0.8;">ئەگەر مانگێک هیچ یاریەیەک نەکەی 0 پۆینت وەرئەگریت</p>
+        <p
+            style="color: var(--red); font-weight: 800; font-size: 11px; text-align: center; margin-top: 8px; padding-bottom: 40px; opacity: 0.8;">
+            ئەگەر مانگێک هیچ یاریەیەک نەکەی 0 پۆینت وەرئەگریت</p>
     </main>
 
     <!-- YEAR DETAIL OVERLAY -->
@@ -355,18 +358,23 @@
         style="position: absolute; left: -9999px; top: -9999px; width: 400px; padding: 40px 30px; background: #0d1127; color: white; font-family: 'Vazirmatn', sans-serif; text-align: center; overflow: hidden; border-radius: 0;">
         <div id="winnerFireworks" style="position:absolute; inset:0; pointer-events:none; opacity: 0.5;"></div>
         <div style="position:relative; z-index: 2;">
-            <h2 style="font-size: 42px; font-weight: 900; color: #FFD700; margin-bottom: 10px; text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);">براوەی مانگ</h2>
-            <div id="winnerMonthLabel" style="font-size: 20px; opacity: 0.8; margin-bottom: 40px; font-weight: 700;"></div>
-            
-            <div id="winnerPodium" style="display: flex; align-items: flex-end; justify-content: center; gap: 15px; margin-bottom: 40px;">
+            <h2
+                style="font-size: 42px; font-weight: 900; color: #FFD700; margin-bottom: 10px; text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);">
+                براوەی مانگ</h2>
+            <div id="winnerMonthLabel" style="font-size: 20px; opacity: 0.8; margin-bottom: 40px; font-weight: 700;">
+            </div>
+
+            <div id="winnerPodium"
+                style="display: flex; align-items: flex-end; justify-content: center; gap: 15px; margin-bottom: 40px;">
                 <!-- Filled dynamically -->
             </div>
-            
+
             <div id="winnerRestList" style="display: flex; flex-direction: column; gap: 10px; text-align: right;">
                 <!-- Filled dynamically -->
             </div>
-            
-            <div style="margin-top: 50px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px; opacity: 0.5; font-size: 12px;">
+
+            <div
+                style="margin-top: 50px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px; opacity: 0.5; font-size: 12px;">
                 Competition Tracker • Dream Caffe
             </div>
         </div>
@@ -374,10 +382,14 @@
 
     <!-- SHARE OVERLAY -->
     <div id="shareOverlay" class="modal-overlay" style="z-index: 1000; background: rgba(0,0,0,0.9);">
-        <div style="display: flex; flex-direction: column; align-items: center; gap: 20px; width: 90%; max-width: 400px;">
-            <div id="sharePreview" style="width: 100%; border-radius: 20px; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.5);"></div>
-            <p style="color: white; font-size: 14px; text-align: center; opacity: 0.8;">دەست دابگرە لەسەر وێنەکە بۆ پاشەکەوتکردن</p>
-            <button class="action-btn" onclick="document.getElementById('shareOverlay').classList.remove('active')" 
+        <div
+            style="display: flex; flex-direction: column; align-items: center; gap: 20px; width: 90%; max-width: 400px;">
+            <div id="sharePreview"
+                style="width: 100%; border-radius: 20px; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.5);">
+            </div>
+            <p style="color: white; font-size: 14px; text-align: center; opacity: 0.8;">دەست دابگرە لەسەر وێنەکە بۆ
+                پاشەکەوتکردن</p>
+            <button class="action-btn" onclick="document.getElementById('shareOverlay').classList.remove('active')"
                 style="background: var(--surface2); color: white; border: 1px solid rgba(255,255,255,0.1);">داخستن</button>
         </div>
     </div>
