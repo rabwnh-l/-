@@ -395,12 +395,12 @@
     </div>
 
     <script src="app.js"></script>
-    <script type="module">
-  // 1. Import the Firebase tools
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
-  import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-database.js";
+<script type="module">
+ // 1. Import the tools
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-  // 2. Your specific configuration from the screenshot
+  // 2. Your specific database "Map"
   const firebaseConfig = {
     apiKey: "AIzaSyChbxpNHFL3lMdNfaHSLScyUarFPHprhEQ",
     authDomain: "dream-okey.firebaseapp.com",
@@ -408,32 +408,18 @@
     projectId: "dream-okey",
     storageBucket: "dream-okey.firebasestorage.app",
     messagingSenderId: "929206101210",
-    appId: "1:929206101210:web:e948bbb1e8a52a7dc2b1e3",
-    measurementId: "G-0451B682FE"
+    appId: "1:929206101210:web:d445eeafc5840d70c2b1e3"
   };
 
-  // 3. Initialize Firebase & Database
+  // 3. Start the connection
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
 
-  // --- USEFUL FUNCTIONS FOR YOUR APP ---
-
-  // Function to change data (call this when a button is clicked)
-  window.sendData = (path, value) => {
-    set(ref(db, path), value);
+  // 4. A function you can use to send data
+  window.sendData = (value) => {
+    set(ref(db, 'testFolder/score'), value);
+    alert("Sent " + value + " to the database!");
   };
-
-  // Listener to get live updates
-  // This looks at a folder called 'gameStats' in your database
-  onValue(ref(db, 'gameStats'), (snapshot) => {
-    const data = snapshot.val();
-    console.log("Database updated!", data);
-    
-    // Example: If you have an element with ID 'score', it updates automatically
-    if(data && data.score) {
-        document.getElementById('score').innerText = data.score;
-    }
-  });
 </script>
 </body>
 
