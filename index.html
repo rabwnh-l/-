@@ -406,6 +406,16 @@
         statusElement.innerText = value;
       }
     });
+
+    document.querySelectorAll('button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const loginBox = document.querySelector('.modal-overlay');
+        if (loginBox) {
+          loginBox.style.display = 'none';
+        }
+      });
+    });
   </script>
 </body>
 </html>
+
