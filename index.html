@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0d1127">
+    <title>Competition Tracker</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Vazirmatn:wght@400;700;900&display=swap"
+        rel="stylesheet">
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body dir="rtl">
+    <!-- LOGIN SCREEN -->
+    <div id="loginScreen" class="login-overlay">
+        <div class="login-box">
+            <h2 class="login-title">Competition Login</h2>
+            <p class="login-subtitle">Choose access level to continue</p>
+
+            <div id="loginOptions" class="login-form">
+                <button class="action-btn login-btn" onclick="showAdminLogin()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"
+                        style="margin-right:8px">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                    </svg>
+                    Log in as Admin
+                </button>
+                <button class="action-btn reset-btn" onclick="handleViewerLogin()"
+                    style="background:var(--surface2);border:1px solid rgba(0,0,0,0.1)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"
+                        style="margin-right:8px">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                        <circle cx="12" cy="12" r="3" />
+                    </svg>
+                    Log in as Viewer
+                </button>
+            </div>
+
+            <div id="adminLoginForm" class="login-form" style="display:none">
+                <input type="text" id="loginUser" placeholder="Username" autocomplete="off">
+                <input type="password" id="loginPass" placeholder="Password">
+                <div style="display:flex;gap:8px">
+                    <button class="action-btn reset-btn" onclick="showLoginOptions()"
+                        style="flex:1;margin-bottom:0">Back</button>
+                    <button class="action-btn login-btn" onclick="handleAdminLogin()"
+                        style="flex:2;margin-bottom:0">Login</button>
+                </div>
+            </div>
+
+            <p id="loginError" class="login-error"></p>
+        </div>
+    </div>
+
+
+
+    <!-- TAB BAR -->
+    <nav class="tab-bar">
+        <button class="tab-item active" data-tab="leaderboard">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                <path
+                    d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+            </svg>
+            <span>ڕیزبەندی مانگانە</span>
+        </button>
+        <button class="tab-item" data-tab="record">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                <path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
+            </svg>
+            <span>تۆمارکردن</span>
+        </button>
+        <button class="tab-item" data-tab="annual">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <span>ئامارەکان</span>
+        </button>
+        <button class="tab-item" data-tab="rankings">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                <path
+                    d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+            </svg>
+            <span>ڕیزبەندی هەمیشەیی</span>
+        </button>
+        <button class="tab-item" data-tab="settings">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                <path
+                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <circle cx="12" cy="12" r="3" />
+            </svg>
+            <span>ڕێکخستن</span>
+        </button>
+    </nav>
+
+    <!-- STANDINGS PAGE -->
+    <main class="page active" id="pageLeaderboard">
+        <header class="page-header">
+            <div>
+                <h1 class="page-title">ڕیزبەندی مانگانە</h1>
+                <div class="month-badge" id="currentMonthBadge"></div>
+            </div>
+        </header>
+        <div class="podium-section" id="podiumSection"></div>
+        <div class="rest-list" id="restList"></div>
+        <button class="action-btn" onclick="handleLogout()" id="btnLogout"
+            style="display:none; margin-top:24px; background:rgba(255,59,48,0.1); border:1px solid rgba(255,59,48,0.2); color:var(--red);">
+            چوونە دەرەوە
+        </button>
+    </main>
+
+    <!-- RECORD PAGE -->
+    <main class="page" id="pageRecord">
+        <header class="page-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+                <h1 class="page-title">تۆمارکردنی یاری</h1>
+                <p class="page-subtitle">بردنەوە یان دۆڕانی یاریزانەکان دیاری بکە</p>
+            </div>
+            <button class="action-btn reset-btn" id="btnResetToday" onclick="resetToday()"
+                style="width:auto;padding:8px 14px;font-size:12px;height:38px;margin-bottom:0">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"
+                    style="margin-right:6px">
+                    <path d="M1 4v6h6M23 20v-6h-6M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15" />
+                </svg>
+                گەڕانەوە بۆ پێشوو
+            </button>
+        </header>
+        <div class="players-grid" id="playersGrid"></div>
+    </main>
+
+    <!-- ANNUAL PAGE -->
+    <main class="page" id="pageAnnual">
+        <header class="page-header">
+            <h1 class="page-title">ئامارەکان</h1>
+            <div style="margin-top: 16px; display: none;">
+                <button class="action-btn" onclick="showAllTimeRankings()"
+                    style="background:var(--glass); color:var(--text); border:1px solid var(--glass-border); backdrop-filter:blur(10px); margin-bottom:0; font-size:14px; height:50px;">
+                    ڕیزبەندی هەمیشەیی
+                </button>
+            </div>
+        </header>
+        <div class="annual-container">
+            <div id="yearlyChampions"></div>
+            <div id="annualChampions"></div>
+            <div id="yearlyButtonsGrid"
+                style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 32px;"></div>
+            <div id="monthlyHistory" style="display:none"></div>
+        </div>
+    </main>
+
+    <!-- RANKINGS PAGE -->
+    <main class="page" id="pageRankings">
+        <header class="page-header">
+            <h1 class="page-title">ڕیزبەندی هەمیشەیی</h1>
+            <p class="page-subtitle">ڕیزبەندی گشتی یاریزانان لە هەموو کاتەکاندا</p>
+
+
+        </header>
+        <div class="annual-container" id="rankingsListContent">
+            <!-- Filled dynamically -->
+        </div>
+        <div
+            style="margin: 24px 0; padding: 16px; background: var(--surface3); border-radius: 16px; font-size: 11px; line-height: 1.4; color: var(--text2);">
+            <div style="font-weight: 800; margin-bottom: 8px; color: var(--text); text-align: center;">سیستەمی خاڵەکان:</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; text-align: right;">
+                <span>🥇 یەکەم: 15 خاڵ</span> <span>🥈 دووەم: 10 خاڵ</span> <span>🥉 سێیەم: 8 خاڵ</span>
+                <span>چوارەم: 6 خاڵ</span> <span>پێنجەم: 4 خاڵ</span> <span>شەشەم: 3 خاڵ</span>
+                <span>حەوتەم: 2 خاڵ</span> <span>هەشتەم: 1 خاڵ</span> <span>نۆیەم: 0 خاڵ</span>
+            </div>
+        </div>
+        <p style="color: var(--red); font-weight: 800; font-size: 11px; text-align: center; margin-top: 8px; padding-bottom: 40px; opacity: 0.8;">ئەگەر مانگێک هیچ یاریەیەک نەکەی 0 پۆینت وەرئەگریت</p>
+    </main>
+
+    <!-- YEAR DETAIL OVERLAY -->
+    <main class="page" id="pageYearDetail"
+        style="z-index: 250; background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);">
+        <header class="page-header"
+            style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 24px;">
+            <button class="btn-photo" onclick="closeYearDetail()"
+                style="width: 40px; height: 40px; background: var(--surface2);">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20">
+                    <path d="M15 18l-6-6 6-6" />
+                </svg>
+            </button>
+            <h1 class="page-title" id="yearDetailTitle" style="flex: 1; margin-right: 40px;">Year 2024</h1>
+        </header>
+        <div class="annual-container" id="yearDetailContent">
+            <!-- Filled dynamically -->
+        </div>
+    </main>
+
+    <!-- SETTINGS PAGE -->
+    <main class="page" id="pageSettings">
+        <header class="page-header">
+            <h1 class="page-title">ڕێکخستنەکان</h1>
+            <p class="page-subtitle">بەڕێوەبردنی یاریزانان و زانیارییەکان</p>
+        </header>
+        <div class="settings-container">
+            <div class="settings-section">
+                <h2 class="settings-section-title">ناوی یاریزانەکان</h2>
+                <div id="playerNamesList"></div>
+                <button class="action-btn add-player-btn" id="btnAddPlayer">+ زیادکردنی یاریزان</button>
+                <button class="action-btn save-names-btn" id="btnSaveNames">پاشەکەوتکردنی ناوەکان</button>
+            </div>
+
+            <div class="settings-section">
+                <h2 class="settings-section-title">تۆمارە مێژووییەکان</h2>
+                <p class="page-subtitle" style="margin-bottom: 12px; text-align: right;">بەڕێوەبردنی ئەنجامەکانی ڕابردوو
+                    بە شێوەی دەستی.</p>
+                <button class="action-btn" onclick="openHistoricalPage()"
+                    style="background:var(--surface3); color:var(--text); border:1px solid rgba(0,0,0,0.1); margin-bottom: 8px;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"
+                        style="margin-left:8px">
+                        <path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
+                    </svg>
+                    زیادکردنی تۆماری مێژوویی
+                </button>
+                <button class="action-btn" onclick="openManageMonthsPage()"
+                    style="background:var(--surface3); color:var(--text); border:1px solid rgba(0,0,0,0.1);">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"
+                        style="margin-left:8px">
+                        <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" />
+                        <polyline points="17 21 17 13 7 13 7 21" />
+                        <polyline points="7 3 7 8 15 8" />
+                    </svg>
+                    سڕینەوەی مانگەکان
+                </button>
+            </div>
+            <div class="settings-section">
+                <h2 class="settings-section-title">کێبڕکێ</h2>
+                <button class="action-btn save-names-btn" id="btnEndToday"
+                    style="background:var(--surface3);margin-bottom:12px">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"
+                        style="margin-left:4px">
+                        <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    کۆتایی هێنان بە ئەمڕۆ
+                </button>
+                <button class="action-btn new-comp-btn" id="btnNewCompetition">کۆتایی مانگ و دەستپێکی نوێ</button>
+                <button class="action-btn" onclick="generateWinnerImage()"
+                    style="background: linear-gradient(135deg, #FFD700, #FFA000); color: #000; font-weight: 800; border: none; margin-bottom: 12px; box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"
+                        style="margin-left:8px">
+                        <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
+                        <circle cx="12" cy="13" r="4" />
+                    </svg>
+                    وێنەی براوەی مانگ
+                </button>
+                <button class="action-btn reset-btn" id="btnResetCurrent">سفرکردنەوەی مانگی ئێستا</button>
+                <button class="action-btn danger-btn" id="btnResetAnnual">سفرکردنەوەی هەموو ئامارەکان</button>
+                <button class="action-btn danger-btn" id="btnResetAll" style="margin-top:24px">سفرکردنەوەی هەموو
+                    شتێک</button>
+            </div>
+        </div>
+    </main>
+
+    <!-- HISTORICAL RECORD PAGE -->
+    <main class="page" id="pageHistorical" style="z-index: 150;">
+        <header class="page-header"
+            style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 24px;">
+            <button class="btn-photo" onclick="closeHistoricalPage()"
+                style="width: 40px; height: 40px; background: var(--surface2);">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20">
+                    <path d="M15 18l-6-6 6-6" />
+                </svg>
+            </button>
+            <h1 class="page-title" style="flex: 1; margin-right: 40px;">Add Record</h1>
+        </header>
+
+        <div class="settings-container">
+            <div class="historical-form">
+                <div style="display:flex; gap:8px; margin-bottom: 4px;">
+                    <select id="histYear" class="styled-select" style="flex:1"
+                        onchange="highlightExistingMonth()"></select>
+                    <select id="histMonth" class="styled-select" style="flex:2" onchange="highlightExistingMonth()">
+                        <option value="0">January</option>
+                        <option value="1">February</option>
+                        <option value="2">March</option>
+                        <option value="3">April</option>
+                        <option value="4">May</option>
+                        <option value="5">June</option>
+                        <option value="6">July</option>
+                        <option value="7">August</option>
+                        <option value="8">September</option>
+                        <option value="9">October</option>
+                        <option value="10">November</option>
+                        <option value="11">December</option>
+                    </select>
+                </div>
+                <div id="histWarning"
+                    style="font-size: 11px; color: var(--red); font-weight: 700; margin-bottom: 12px; height: 14px; opacity: 0; transition: opacity 0.2s;">
+                    ⚠️ Record already exists for this date!</div>
+
+                <div id="historicalRanksContainer" style="display: flex; flex-direction: column; gap: 20px;">
+                    <!-- Filled dynamically by app.js: renderHistoricalSettings() -->
+                </div>
+
+                <button class="action-btn new-comp-btn" style="margin-top:32px" onclick="addHistoricalRecord()">Save
+                    Record</button>
+            </div>
+        </div>
+    </main>
+
+    <!-- MANAGE MONTHS PAGE -->
+    <main class="page" id="pageManageMonths" style="z-index: 150;">
+        <header class="page-header"
+            style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 24px;">
+            <button class="btn-photo" onclick="closeManageMonthsPage()"
+                style="width: 40px; height: 40px; background: var(--surface2);">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20">
+                    <path d="M15 18l-6-6 6-6" />
+                </svg>
+            </button>
+            <h1 class="page-title" style="flex: 1; margin-right: 40px;">بەڕێوەبردنی تۆمارەکان</h1>
+        </header>
+
+        <div class="settings-container">
+            <div id="monthsManagementList" style="display: flex; flex-direction: column; gap: 12px;">
+                <!-- Filled dynamically by app.js -->
+            </div>
+        </div>
+    </main>
+
+    <!-- PLAYER STATS MODAL -->
+    <div class="modal-overlay" id="playerStatsOverlay" style="z-index: 300;">
+        <div class="modal" style="max-width: 90%; width: 340px;">
+            <div id="playerStatsContent"></div>
+            <button class="action-btn"
+                onclick="document.getElementById('playerStatsOverlay').classList.remove('active')"
+                style="margin-top: 20px; background: var(--surface3);">Close</button>
+        </div>
+    </div>
+
+    <!-- MODAL -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal">
+            <h3 class="modal-title" id="modalTitle"></h3>
+            <p class="modal-message" id="modalMessage"></p>
+            <div class="modal-actions" id="modalActions"></div>
+        </div>
+    </div>
+
+    <!-- TOAST -->
+    <div class="toast" id="toast"><span id="toastText"></span></div>
+
+    <!-- HIDDEN PHOTO INPUT -->
+    <input type="file" id="playerPhotoInput" accept="image/*" style="display:none">
+
+    <!-- WINNER SHARE CARD (HIDDEN) -->
+    <div id="winnerShareContainer"
+        style="position: absolute; left: -9999px; top: -9999px; width: 400px; padding: 40px 30px; background: #0d1127; color: white; font-family: 'Vazirmatn', sans-serif; text-align: center; overflow: hidden; border-radius: 0;">
+        <div id="winnerFireworks" style="position:absolute; inset:0; pointer-events:none; opacity: 0.5;"></div>
+        <div style="position:relative; z-index: 2;">
+            <h2 style="font-size: 42px; font-weight: 900; color: #FFD700; margin-bottom: 10px; text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);">براوەی مانگ</h2>
+            <div id="winnerMonthLabel" style="font-size: 20px; opacity: 0.8; margin-bottom: 40px; font-weight: 700;"></div>
+            
+            <div id="winnerPodium" style="display: flex; align-items: flex-end; justify-content: center; gap: 15px; margin-bottom: 40px;">
+                <!-- Filled dynamically -->
+            </div>
+            
+            <div id="winnerRestList" style="display: flex; flex-direction: column; gap: 10px; text-align: right;">
+                <!-- Filled dynamically -->
+            </div>
+            
+            <div style="margin-top: 50px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px; opacity: 0.5; font-size: 12px;">
+                Competition Tracker • Dream Caffe
+            </div>
+        </div>
+    </div>
+
+    <!-- SHARE OVERLAY -->
+    <div id="shareOverlay" class="modal-overlay" style="z-index: 1000; background: rgba(0,0,0,0.9);">
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 20px; width: 90%; max-width: 400px;">
+            <div id="sharePreview" style="width: 100%; border-radius: 20px; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.5);"></div>
+            <p style="color: white; font-size: 14px; text-align: center; opacity: 0.8;">دەست دابگرە لەسەر وێنەکە بۆ پاشەکەوتکردن</p>
+            <button class="action-btn" onclick="document.getElementById('shareOverlay').classList.remove('active')" 
+                style="background: var(--surface2); color: white; border: 1px solid rgba(255,255,255,0.1);">داخستن</button>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
