@@ -26,11 +26,13 @@ function loadData() {
 // ===== FIREBASE INIT =====
 let database = null;
 let dbRef = null;
+let photoRef = null; // Separate path for heavy photos
 
 try {
     if (typeof firebase !== 'undefined' && firebase.database) {
         database = firebase.database();
         dbRef = database.ref('competitionData');
+        photoRef = database.ref('playerPhotos');
         console.log("Firebase initialized successfully.");
     } else {
         console.warn("Firebase SDK not loaded. Running in offline/localStorage mode.");
@@ -71,15 +73,48 @@ function normalizeData(d) {
     return d;
 }
 
-function saveData() { 
+let saveTimeout = null;
+function saveData(immediate = false) { 
     localStorage.setItem('competitionData', JSON.stringify(data)); 
-    // Only Admin can save to Firebase
+    
+    if (immediate) {
+        performFirebaseSave();
+    } else {
+        clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(performFirebaseSave, 1500); // Wait 1.5s after last change
+    }
+}
+
+function performFirebaseSave() {
     if (dbRef && sessionStorage.getItem('userRole') === 'admin') {
-        dbRef.set(data).then(() => {
-            console.log("Saved to Firebase");
+        // Create a lightweight copy of data without photos for regular sync
+        const lightData = JSON.parse(JSON.stringify(data));
+        
+        // Remove photos from the main sync to keep it fast
+        if (lightData.players) {
+            lightData.players.forEach(p => { delete p.photo; });
+        }
+        
+        dbRef.set(lightData).then(() => {
+            console.log("Stats synced to Firebase");
         }).catch(e => {
-            console.error("Firebase Save Error:", e);
-            showToast("⚠️ نەتوانرا لە سێرڤەر پاشەکەوت بکرێت. (پەیوەندی یان ڕێگەپێدان)");
+            console.error("Firebase Sync Error:", e);
+        });
+    }
+}
+
+function savePhotos() {
+    if (photoRef && sessionStorage.getItem('userRole') === 'admin') {
+        const photos = {};
+        data.players.forEach(p => {
+            if (p.photo) photos[p.id] = p.photo;
+        });
+        photoRef.set(photos).then(() => {
+            console.log("Photos synced to Firebase");
+            showToast("وێنەکان پاشەکەوت کران");
+        }).catch(e => {
+            console.error("Photo Sync Error:", e);
+            showToast("⚠️ کێشە لە پاشەکەوتکردنی وێنە");
         });
     }
 }
@@ -91,7 +126,26 @@ if (dbRef) {
     dbRef.on('value', (snapshot) => {
         const remoteData = snapshot.val();
         if (remoteData) {
+            const oldPhotos = data.players.map(p => ({id: p.id, photo: p.photo}));
             data = normalizeData(remoteData);
+            // Restore photos from local state after sync
+            oldPhotos.forEach(op => {
+                const p = data.players.find(pl => pl.id === op.id);
+                if (p) p.photo = op.photo;
+            });
+            renderCurrentPage();
+        }
+    });
+}
+
+if (photoRef) {
+    photoRef.on('value', (snapshot) => {
+        const photos = snapshot.val();
+        if (photos) {
+            Object.keys(photos).forEach(id => {
+                const p = data.players.find(pl => pl.id == id);
+                if (p) p.photo = photos[id];
+            });
             renderCurrentPage();
         }
     });
@@ -766,7 +820,10 @@ document.getElementById('playerPhotoInput').addEventListener('change', (e) => {
         const player = data.players.find(p => p.id === photoTargetId);
         if (player) {
             player.photo = event.target.result;
-            saveData(); showToast('Photo updated!'); renderSettings(); renderLeaderboard();
+            saveData(true); 
+            savePhotos(); // Save photos separately
+            renderSettings(); 
+            renderLeaderboard();
         }
         photoTargetId = null; e.target.value = '';
     };
@@ -902,12 +959,18 @@ function deletePlayerPhoto(playerId) {
     showModal('وێنەکە دەسڕیتەوە؟', 'وێنەی "' + player.name + '" دەسڕێتەوە؟', [
         { text: 'پاشگەزبوونەوە', class: 'cancel' },
         { text: 'سڕینەوە', class: 'danger', action: () => {
+            // Force local update first
             player.photo = null;
-            saveData();
-            showToast('وێنەکە سڕایەوە!');
+            
+            // Re-render immediately
             renderSettings();
             renderLeaderboard();
             if (typeof renderRecordPage === 'function') renderRecordPage();
+            
+            // Save to server
+            saveData(true);
+            savePhotos(); // Update photos separately
+            showToast('وێنەکە بەسەرکەوتوویی سڕایەوە!');
         }}
     ]);
 }
