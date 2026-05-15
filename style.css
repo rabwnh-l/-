@@ -45,8 +45,6 @@ body {
     color: var(--text);
     overflow: hidden;
     -webkit-tap-highlight-color: transparent;
-    -webkit-user-select: none;
-    user-select: none;
 }
 
 /* ===== TAB BAR ===== */
@@ -84,6 +82,7 @@ body {
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     font-size: 10px;
     font-weight: 700;
+    touch-action: manipulation;
 }
 
 .tab-item.active {
@@ -111,6 +110,7 @@ body {
     overflow-x: hidden;
     display: none;
     -webkit-overflow-scrolling: touch;
+    z-index: 1;
 }
 
 .page.active {
@@ -882,7 +882,9 @@ body {
     cursor: pointer;
     transition: all .2s;
     font-family: inherit;
-    margin-bottom: 8px
+    margin-bottom: 8px;
+    touch-action: manipulation;
+    cursor: pointer;
 }
 
 .action-btn:active {

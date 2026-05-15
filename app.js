@@ -23,6 +23,12 @@ function loadData() {
     try { const r = localStorage.getItem('competitionData'); if (r) return JSON.parse(r); } catch(e) {}
     return getDefaultData();
 }
+
+// Global state for sync optimization
+let isSyncingLocal = false;
+let lastSyncTimestamp = 0;
+let saveDebounceTimer = null;
+
 // ===== FIREBASE INIT =====
 let database = null;
 let dbRef = null;
@@ -71,31 +77,56 @@ function normalizeData(d) {
     return d;
 }
 
-function saveData() { 
+function saveData(immediate = false) { 
     localStorage.setItem('competitionData', JSON.stringify(data)); 
+    
     // Only Admin can save to Firebase
     if (dbRef && sessionStorage.getItem('userRole') === 'admin') {
-        dbRef.set(data).then(() => {
-            console.log("Saved to Firebase");
-        }).catch(e => {
-            console.error("Firebase Save Error:", e);
-            showToast("⚠️ نەتوانرا لە سێرڤەر پاشەکەوت بکرێت. (پەیوەندی یان ڕێگەپێدان)");
-        });
+        clearTimeout(saveDebounceTimer);
+        
+        const performSave = () => {
+            isSyncingLocal = true;
+            lastSyncTimestamp = Date.now();
+            const indicator = document.getElementById('syncIndicator');
+            if (indicator) indicator.style.display = 'flex';
+            
+            dbRef.set(data).then(() => {
+                console.log("Saved to Firebase");
+                if (indicator) setTimeout(() => { indicator.style.display = 'none'; }, 500);
+                setTimeout(() => { isSyncingLocal = false; }, 1000); // Buffer period
+            }).catch(e => {
+                isSyncingLocal = false;
+                if (indicator) indicator.style.display = 'none';
+                console.error("Firebase Save Error:", e);
+                showToast("⚠️ نەتوانرا لە سێرڤەر پاشەکەوت بکرێت. (پەیوەندی یان ڕێگەپێدان)");
+            });
+        };
+
+        if (immediate) performSave();
+        else saveDebounceTimer = setTimeout(performSave, 1000);
     }
 }
+
 
 let data = normalizeData(loadData());
 
 // Listener for real-time updates
 if (dbRef) {
     dbRef.on('value', (snapshot) => {
+        if (isSyncingLocal) return; // Skip updates triggered by us
+        
         const remoteData = snapshot.val();
         if (remoteData) {
-            data = normalizeData(remoteData);
-            renderCurrentPage();
+            const newData = normalizeData(remoteData);
+            // Simple check to see if we actually need to update
+            if (JSON.stringify(newData) !== JSON.stringify(data)) {
+                data = newData;
+                renderCurrentPage();
+            }
         }
     });
 }
+
 
 function renderCurrentPage() {
     const activeTab = document.querySelector('.tab-item.active');
@@ -754,20 +785,50 @@ function triggerPhotoUpload(playerId) {
     document.getElementById('playerPhotoInput').click();
 }
 
-document.getElementById('playerPhotoInput').addEventListener('change', (e) => {
+function compressImage(base64, maxWidth = 160, quality = 0.7) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            let width = img.width;
+            let height = img.height;
+            if (width > height) {
+                if (width > maxWidth) { height *= maxWidth / width; width = maxWidth; }
+            } else {
+                if (height > maxWidth) { width *= maxWidth / height; height = maxWidth; }
+            }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.src = base64;
+    });
+}
+
+document.getElementById('playerPhotoInput').addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (!file || photoTargetId === null) return;
+    
+    showToast("Processing photo...");
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
+        const compressed = await compressImage(event.target.result);
         const player = data.players.find(p => p.id === photoTargetId);
         if (player) {
-            player.photo = event.target.result;
-            saveData(); showToast('Photo updated!'); renderSettings(); renderLeaderboard();
+            player.photo = compressed;
+            saveData(true); // Save immediately for photo updates
+            showToast('Photo updated! ✅'); 
+            renderSettings(); 
+            renderLeaderboard();
         }
-        photoTargetId = null; e.target.value = '';
+        photoTargetId = null; 
+        e.target.value = '';
     };
     reader.readAsDataURL(file);
 });
+
 
 document.getElementById('btnSaveNames').addEventListener('click', () => {
     data.players.forEach((p, i) => {
