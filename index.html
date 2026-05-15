@@ -394,33 +394,25 @@
         </div>
     </div>
 
+    <!-- Firebase Compat SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBehg4bhUNXM0OZfS3_ilnCW1Dh6uRrVdc",
+            authDomain: "dream-league-okey.firebaseapp.com",
+            databaseURL: "https://dream-league-okey-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "dream-league-okey",
+            storageBucket: "dream-league-okey.firebasestorage.app",
+            messagingSenderId: "1027675826945",
+            appId: "1:1027675826945:web:d118aa3aa77357035f0900",
+            measurementId: "G-JY3QCZPNHR"
+        };
+        firebase.initializeApp(firebaseConfig);
+    </script>
+
     <script src="app.js"></script>
-<script type="module">
- // 1. Import the tools
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-
-  // 2. Your specific database "Map"
-  const firebaseConfig = {
-    apiKey: "AIzaSyChbxpNHFL3lMdNfaHSLScyUarFPHprhEQ",
-    authDomain: "dream-okey.firebaseapp.com",
-    databaseURL: "https://dream-okey-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "dream-okey",
-    storageBucket: "dream-okey.firebasestorage.app",
-    messagingSenderId: "929206101210",
-    appId: "1:929206101210:web:d445eeafc5840d70c2b1e3"
-  };
-
-  // 3. Start the connection
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
-
-  // 4. A function you can use to send data
-  window.sendData = (value) => {
-    set(ref(db, 'testFolder/score'), value);
-    alert("Sent " + value + " to the database!");
-  };
-</script>
 </body>
 
 </html>

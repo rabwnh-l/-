@@ -23,8 +23,40 @@ function loadData() {
     try { const r = localStorage.getItem('competitionData'); if (r) return JSON.parse(r); } catch(e) {}
     return getDefaultData();
 }
-function saveData() { localStorage.setItem('competitionData', JSON.stringify(data)); }
+// ===== FIREBASE INIT =====
+const database = firebase.database();
+const dbRef = database.ref('competitionData');
+
+function saveData() { 
+    localStorage.setItem('competitionData', JSON.stringify(data)); 
+    // Only Admin can save to Firebase
+    if (sessionStorage.getItem('userRole') === 'admin') {
+        dbRef.set(data).catch(e => console.error("Firebase Save Error:", e));
+    }
+}
+
 let data = loadData();
+
+// Listener for real-time updates
+dbRef.on('value', (snapshot) => {
+    const remoteData = snapshot.val();
+    if (remoteData) {
+        // Deep compare or just assign? Assigning is simpler for this structure
+        data = remoteData;
+        renderCurrentPage();
+    }
+});
+
+function renderCurrentPage() {
+    const activeTab = document.querySelector('.tab-item.active');
+    if (!activeTab) return;
+    const target = activeTab.dataset.tab;
+    if (target === 'leaderboard') renderLeaderboard();
+    if (target === 'record') renderRecordPage();
+    if (target === 'annual') renderAnnualPage();
+    if (target === 'rankings') renderRankingsPage();
+    if (target === 'settings') renderSettings();
+}
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 function getInitial(name) { return name.charAt(0).toUpperCase(); }
 
