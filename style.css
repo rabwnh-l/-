@@ -119,6 +119,9 @@ input {
     overflow-x: hidden;
     display: none;
     -webkit-overflow-scrolling: touch;
+    position: relative;
+    z-index: 10;
+    pointer-events: auto !important;
 }
 
 .page.active {

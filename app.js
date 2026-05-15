@@ -114,7 +114,14 @@ if (dbRef) {
         const remoteData = snapshot.val();
         if (remoteData) {
             data = normalizeData(remoteData);
-            renderCurrentPage();
+            
+            // CRITICAL: Don't re-render if user is on an "Input" page 
+            // This prevents buttons from "dying" while being clicked
+            const activeTab = document.querySelector('.tab-item.active');
+            const currentTab = activeTab ? activeTab.dataset.tab : '';
+            if (currentTab !== 'settings' && currentTab !== 'record') {
+                renderCurrentPage();
+            }
         }
     });
 }
@@ -125,7 +132,9 @@ if (photoRef) {
         if (photos) {
             playerPhotos = photos;
             const activeTab = document.querySelector('.tab-item.active');
-            if (activeTab && (['leaderboard', 'settings', 'record'].includes(activeTab.dataset.tab))) {
+            const currentTab = activeTab ? activeTab.dataset.tab : '';
+            // Only re-render if NOT on an input page
+            if (currentTab !== 'settings' && currentTab !== 'record' && (['leaderboard'].includes(currentTab))) {
                 renderCurrentPage();
             }
         }
