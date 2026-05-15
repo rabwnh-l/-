@@ -6,21 +6,28 @@ const AVATAR_COLORS = [
     ['#4a7dff','#74b9ff'],['#00b894','#55efc4'],['#ff5c72','#ff8a9a'],['#636e72','#b2bec3']
 ];
 
+let playerPhotos = {}; // THE VAULT: Keeps heavy images out of the main logic
+
 function getDefaultData() {
     const now = new Date();
     return {
-        players: DEFAULT_NAMES.map((name, i) => ({ id: i, name, points: 0, wins: 0, losses: 0, gamesPlayed: 0, photo: null })),
+        players: DEFAULT_NAMES.map((name, i) => ({ id: i, name, points: 0, wins: 0, losses: 0, gamesPlayed: 0, isHidden: false })),
         currentMonth: now.getMonth(),
         currentYear: now.getFullYear(),
         monthlyResults: [],
         annualStats: {},
-        yesterdayRanks: {}, // Stores { playerId: rank }
-        yesterdayState: null, // Stores snapshot of players array
-        viewYear: now.getFullYear() // Year currently being viewed on Annual page
+        yesterdayRanks: {},
+        yesterdayState: null,
+        viewYear: now.getFullYear()
     };
 }
 function loadData() {
-    try { const r = localStorage.getItem('competitionData'); if (r) return JSON.parse(r); } catch(e) {}
+    try { 
+        const r = localStorage.getItem('competitionData'); 
+        const p = localStorage.getItem('playerPhotos');
+        if (p) playerPhotos = JSON.parse(p);
+        if (r) return JSON.parse(r); 
+    } catch(e) {}
     return getDefaultData();
 }
 // ===== FIREBASE INIT =====
@@ -76,46 +83,23 @@ function normalizeData(d) {
 let saveTimeout = null;
 function saveData(immediate = false) { 
     localStorage.setItem('competitionData', JSON.stringify(data)); 
-    
-    if (immediate) {
-        performFirebaseSave();
-    } else {
+    if (immediate) performFirebaseSave();
+    else {
         clearTimeout(saveTimeout);
-        saveTimeout = setTimeout(performFirebaseSave, 1500); // Wait 1.5s after last change
+        saveTimeout = setTimeout(performFirebaseSave, 1000);
     }
 }
 
 function performFirebaseSave() {
     if (dbRef && sessionStorage.getItem('userRole') === 'admin') {
-        // Create a lightweight copy of data without photos for regular sync
-        const lightData = JSON.parse(JSON.stringify(data));
-        
-        // Remove photos from the main sync to keep it fast
-        if (lightData.players) {
-            lightData.players.forEach(p => { delete p.photo; });
-        }
-        
-        dbRef.set(lightData).then(() => {
-            console.log("Stats synced to Firebase");
-        }).catch(e => {
-            console.error("Firebase Sync Error:", e);
-        });
+        dbRef.set(data).catch(e => console.error("Sync Error:", e));
     }
 }
 
 function savePhotos() {
+    localStorage.setItem('playerPhotos', JSON.stringify(playerPhotos));
     if (photoRef && sessionStorage.getItem('userRole') === 'admin') {
-        const photos = {};
-        data.players.forEach(p => {
-            if (p.photo) photos[p.id] = p.photo;
-        });
-        photoRef.set(photos).then(() => {
-            console.log("Photos synced to Firebase");
-            showToast("وێنەکان پاشەکەوت کران");
-        }).catch(e => {
-            console.error("Photo Sync Error:", e);
-            showToast("⚠️ کێشە لە پاشەکەوتکردنی وێنە");
-        });
+        photoRef.set(playerPhotos).catch(e => console.error("Photo Sync Error:", e));
     }
 }
 
@@ -126,14 +110,12 @@ if (dbRef) {
     dbRef.on('value', (snapshot) => {
         const remoteData = snapshot.val();
         if (remoteData) {
-            const oldPhotos = data.players.map(p => ({id: p.id, photo: p.photo}));
-            data = normalizeData(remoteData);
-            // Restore photos from local state after sync
-            oldPhotos.forEach(op => {
-                const p = data.players.find(pl => pl.id === op.id);
-                if (p) p.photo = op.photo;
-            });
-            renderCurrentPage();
+            // Check if data actually changed to avoid redundant renders
+            const newData = normalizeData(remoteData);
+            if (JSON.stringify(newData) !== JSON.stringify(data)) {
+                data = newData;
+                renderCurrentPage();
+            }
         }
     });
 }
@@ -142,10 +124,7 @@ if (photoRef) {
     photoRef.on('value', (snapshot) => {
         const photos = snapshot.val();
         if (photos) {
-            Object.keys(photos).forEach(id => {
-                const p = data.players.find(pl => pl.id == id);
-                if (p) p.photo = photos[id];
-            });
+            playerPhotos = photos;
             renderCurrentPage();
         }
     });
@@ -222,8 +201,9 @@ document.getElementById('modalOverlay').addEventListener('click', e => { if (e.t
 function getAvatarHTML(p, sizeClass, extraStyle = '') {
     const origIdx = data.players.findIndex(dp => dp.id === p.id);
     const col = AVATAR_COLORS[origIdx % AVATAR_COLORS.length];
-    const bg = p.photo ? `background-image:url(${p.photo})` : `background:linear-gradient(135deg,${col[0]},${col[1]})`;
-    const content = p.photo ? '' : getInitial(p.name);
+    const photo = playerPhotos[p.id];
+    const bg = photo ? `background-image:url(${photo})` : `background:linear-gradient(135deg,${col[0]},${col[1]})`;
+    const content = photo ? '' : getInitial(p.name);
     return `<div class="${sizeClass}" style="${bg};${extraStyle}">${content}</div>`;
 }
 
@@ -639,7 +619,8 @@ function renderSettings() {
     const list = document.getElementById('playerNamesList');
     let html = '';
     data.players.forEach((p, i) => {
-        const deletePhotoBtn = p.photo ? `<button class="btn-photo btn-delete-photo" onclick="deletePlayerPhoto(${p.id})" title="Delete Photo">🗑️</button>` : '';
+        const hasPhoto = !!playerPhotos[p.id];
+        const deletePhotoBtn = hasPhoto ? `<button class="btn-photo btn-delete-photo" onclick="deletePlayerPhoto(${p.id})" title="Delete Photo">🗑️</button>` : '';
         html += `<div class="player-name-input">
             <label>${i+1}.</label>
             <input type="text" value="${esc(p.name)}" id="nameInput${i}" placeholder="Player ${i+1}" maxlength="20">
@@ -819,9 +800,8 @@ document.getElementById('playerPhotoInput').addEventListener('change', (e) => {
     reader.onload = (event) => {
         const player = data.players.find(p => p.id === photoTargetId);
         if (player) {
-            player.photo = event.target.result;
-            saveData(true); 
-            savePhotos(); // Save photos separately
+            playerPhotos[player.id] = event.target.result;
+            savePhotos(); 
             renderSettings(); 
             renderLeaderboard();
         }
@@ -916,10 +896,10 @@ document.getElementById('btnResetAll').addEventListener('click', () => {
     showModal('سفرکردنەوەی هەموو شتێک؟', 'هەموو ئامار و مێژووەکان دەسڕێنەوە.', [
         { text: 'پاشگەزبوونەوە', class: 'cancel' },
         { text: 'سفرکردنەوە', class: 'danger', action: () => {
-            const playersMeta = data.players.map(p => ({ id: p.id, name: p.name, photo: p.photo, isHidden: p.isHidden }));
+            const playersMeta = data.players.map(p => ({ id: p.id, name: p.name, isHidden: p.isHidden }));
             data = getDefaultData();
             data.players = playersMeta.map((m, i) => ({ ...m, points: 0, wins: 0, losses: 0, gamesPlayed: 0 }));
-            saveData(); showToast('هەموو شتێک سفرکرایەوە!'); renderLeaderboard(); renderSettings();
+            saveData(true); showToast('هەموو شتێک سفرکرایەوە!'); renderLeaderboard(); renderSettings();
         }}
     ]);
 });
@@ -937,8 +917,8 @@ document.getElementById('btnResetAnnual').addEventListener('click', () => {
 document.getElementById('btnAddPlayer').addEventListener('click', () => {
     const nextId = data.players.length > 0 ? Math.max(...data.players.map(p => p.id)) + 1 : 0;
     const num = data.players.length + 1;
-    data.players.push({ id: nextId, name: 'Player ' + num, points: 0, wins: 0, losses: 0, gamesPlayed: 0, photo: null, isHidden: false });
-    saveData(); showToast('Player added!'); renderSettings(); renderLeaderboard();
+    data.players.push({ id: nextId, name: 'Player ' + num, points: 0, wins: 0, losses: 0, gamesPlayed: 0, isHidden: false });
+    saveData(true); showToast('Player added!'); renderSettings(); renderLeaderboard();
 });
 
 function togglePlayerVisibility(playerId) {
@@ -954,22 +934,18 @@ function togglePlayerVisibility(playerId) {
 
 function deletePlayerPhoto(playerId) {
     const player = data.players.find(p => p.id === playerId);
-    if (!player || !player.photo) return;
+    if (!player || !playerPhotos[player.id]) return;
 
     showModal('وێنەکە دەسڕیتەوە؟', 'وێنەی "' + player.name + '" دەسڕێتەوە؟', [
         { text: 'پاشگەزبوونەوە', class: 'cancel' },
         { text: 'سڕینەوە', class: 'danger', action: () => {
-            // Force local update first
-            player.photo = null;
+            delete playerPhotos[player.id];
             
-            // Re-render immediately
             renderSettings();
             renderLeaderboard();
             if (typeof renderRecordPage === 'function') renderRecordPage();
             
-            // Save to server
-            saveData(true);
-            savePhotos(); // Update photos separately
+            savePhotos(); 
             showToast('وێنەکە بەسەرکەوتوویی سڕایەوە!');
         }}
     ]);
@@ -1244,7 +1220,8 @@ async function generateWinnerImage() {
         const rank = podiumRanks[i];
         const size = rank === 1 ? 120 : 95;
         const color = rank === 1 ? '#FFD700' : rank === 2 ? '#C0C0C0' : '#CD7F32';
-        const img = p.photo ? `background-image:url(${p.photo})` : `background:linear-gradient(135deg, ${color}, #fff)`;
+        const playerPhoto = playerPhotos[p.id];
+        const img = playerPhoto ? `background-image:url(${playerPhoto})` : `background:linear-gradient(135deg, ${color}, #fff)`;
         
         pHTML += `
             <div style="display:flex; flex-direction:column; align-items:center; gap:10px; width:110px;">
