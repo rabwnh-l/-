@@ -42,6 +42,7 @@ try {
         dbRef = database.ref('competitionData');
         photoRef = database.ref('playerPhotos');
         chatRef = database.ref('chatMessages');
+        chatStatusRef = database.ref('chatStatus'); // Node for lock status
         console.log("Firebase initialized successfully.");
     } else {
         console.warn("Firebase SDK not loaded. Running in offline/localStorage mode.");
@@ -131,14 +132,19 @@ if (photoRef) {
     });
 }
 
-let chatMessages = {};
 if (chatRef) {
     chatRef.on('value', (snapshot) => {
         chatMessages = snapshot.val() || {};
         const activeTab = document.querySelector('.tab-item.active');
-        if (activeTab && activeTab.dataset.tab === 'chat') {
-            renderChatPage();
-        }
+        if (activeTab && activeTab.dataset.tab === 'chat') renderChatPage();
+    });
+}
+
+let chatStatus = { isLocked: false };
+if (chatStatusRef) {
+    chatStatusRef.on('value', (snapshot) => {
+        chatStatus = snapshot.val() || { isLocked: false };
+        updateChatUIStatus();
     });
 }
 
@@ -150,7 +156,7 @@ function renderCurrentPage() {
     if (target === 'record') renderRecordPage();
     if (target === 'annual') renderAnnualPage();
     if (target === 'rankings') renderRankingsPage();
-    if (target === 'chat') renderChatPage();
+    if (target === 'chat') { renderChatPage(); updateChatUIStatus(); }
     if (target === 'settings') renderSettings();
 }
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
@@ -352,16 +358,24 @@ function recordResult(index, type) {
     if (type === 'win') { p.points++; p.wins++; } else { p.points--; p.losses++; }
     p.gamesPlayed++;
     saveData();
+    
+    // Update individual elements for speed
     const card = document.getElementById('prc-' + index);
     if (card) {
+        const pointStr = p.points > 0 ? '+' + p.points : '' + p.points;
+        const ptsEl = card.querySelector('.player-record-points');
+        const countEls = card.querySelectorAll('div[style*="font-weight:900"]');
+        
+        if (ptsEl) ptsEl.textContent = `Pts: ${pointStr} · ${p.gamesPlayed} games`;
+        if (countEls && countEls[0]) countEls[0].textContent = pointStr;
+
         const flash = document.createElement('div');
         flash.className = 'point-flash ' + type;
         flash.textContent = type === 'win' ? '+1' : '-1';
         card.appendChild(flash);
         setTimeout(() => flash.remove(), 800);
     }
-    renderRecordPage();
-    showToast(p.name + (type === 'win' ? ' +1 Win!' : ' -1 Loss'));
+    showToast(p.name + (type === 'win' ? ' +1 بردنەوە' : ' -1 دۆڕان'));
 }
 
 function resetToday() {
@@ -1386,35 +1400,117 @@ function sendChatMessage() {
     input.value = '';
 }
 
+let selectedChatIds = new Set();
+
 function renderChatPage() {
     const container = document.getElementById('chatContainer');
     if (!container) return;
+    const isAdmin = sessionStorage.getItem('userRole') === 'admin';
+    const deleteBtn = document.getElementById('btnDeleteSelectedChat');
+    const adminActionsBtn = document.getElementById('btnAdminChatActions');
+    
+    if (deleteBtn) deleteBtn.style.display = (isAdmin && selectedChatIds.size > 0) ? 'block' : 'none';
+    if (adminActionsBtn) adminActionsBtn.style.display = isAdmin ? 'block' : 'none';
+
     const now = Date.now();
     const limit = 24 * 60 * 60 * 1000; 
 
-    const sorted = Object.values(chatMessages)
-        .filter(m => (now - m.timestamp) < limit)
-        .sort((a, b) => a.timestamp - b.timestamp);
+    // Get messages as entries so we have the Firebase IDs
+    const entries = Object.entries(chatMessages)
+        .filter(([id, m]) => (now - m.timestamp) < limit)
+        .sort((a, b) => a[1].timestamp - b[1].timestamp);
 
     let html = '';
     const myId = myChatId();
 
-    sorted.forEach(m => {
+    entries.forEach(([id, m]) => {
         const isMine = m.sender === myId;
+        const isSelected = selectedChatIds.has(id);
         const timeStr = new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         
+        const adminCheckbox = isAdmin ? `
+            <div style="margin-left: 8px; display:flex; align-items:center;">
+                <input type="checkbox" ${isSelected ? 'checked' : ''} onchange="toggleChatMessageSelection('${id}')" style="width:16px; height:16px;">
+            </div>
+        ` : '';
+
         html += `
-            <div class="chat-bubble ${isMine ? 'mine' : ''}">
-                <div style="font-size: 14px;">${esc(m.text)}</div>
-                <div class="chat-time">${timeStr}</div>
+            <div style="display:flex; align-items:center; ${isMine ? 'flex-direction:row-reverse' : ''}">
+                <div class="chat-bubble ${isMine ? 'mine' : ''}" onclick="${isAdmin ? `toggleChatMessageSelection('${id}')` : ''}" style="cursor:${isAdmin ? 'pointer' : 'default'}">
+                    <div style="font-size: 14px;">${esc(m.text)}</div>
+                    <div class="chat-time">${timeStr}</div>
+                </div>
+                ${adminCheckbox}
             </div>
         `;
     });
 
-    if (sorted.length === 0) {
+    if (entries.length === 0) {
         html = `<div class="no-data">هیچ نامەیەک نییە لێرە...<br>یەکەم نامە بنووسە!</div>`;
     }
 
     container.innerHTML = html;
-    container.scrollTop = container.scrollHeight;
+    // Only scroll to bottom if user is not selecting or if it's the first render
+    if (selectedChatIds.size === 0) {
+        container.scrollTop = container.scrollHeight;
+    }
+}
+
+function toggleChatMessageSelection(id) {
+    if (selectedChatIds.has(id)) selectedChatIds.delete(id);
+    else selectedChatIds.add(id);
+    renderChatPage();
+}
+
+function deleteSelectedMessages() {
+    if (!chatRef || selectedChatIds.size === 0) return;
+    
+    selectedChatIds.forEach(id => {
+        chatRef.child(id).remove();
+    });
+    
+    selectedChatIds.clear();
+    showToast('نامەکان سڕانەوە');
+}
+
+function toggleAdminChatMenu() {
+    const menu = document.getElementById('adminChatMenu');
+    if (menu) menu.style.display = (menu.style.display === 'none') ? 'block' : 'none';
+}
+
+function setChatLock(locked) {
+    if (!chatStatusRef) return;
+    chatStatusRef.set({ isLocked: locked });
+    showToast(locked ? "چات داخرا" : "چات کرایەوە");
+    toggleAdminChatMenu();
+}
+
+function clearAllChat() {
+    if (!chatRef) return;
+    showModal('سڕینەوەی هەموو نامەکان؟', 'هەموو مێژووی چاتەکە دەسڕێتەوە و ناگەڕێتەوە.', [
+        { text: 'پاشگەزبوونەوە', class: 'cancel' },
+        { text: 'سڕینەوەی هەموو', class: 'danger', action: () => {
+            chatRef.set(null);
+            showToast('چاتەکە پاککرایەوە');
+            toggleAdminChatMenu();
+        }}
+    ]);
+}
+
+function updateChatUIStatus() {
+    const isAdmin = sessionStorage.getItem('userRole') === 'admin';
+    const input = document.getElementById('chatInput');
+    const adminBtn = document.getElementById('btnAdminChatActions');
+    
+    if (adminBtn) adminBtn.style.display = isAdmin ? 'block' : 'none';
+    
+    if (input) {
+        if (chatStatus.isLocked && !isAdmin) {
+            input.disabled = true;
+            input.placeholder = "چات لەلایەن ئەدمینەوە داخراوە...";
+        } else {
+            input.disabled = false;
+            input.placeholder = "نامەیەک بنووسە...";
+        }
+    }
 }

@@ -317,12 +317,33 @@
             </div>
         </div>
     </main>
-    <!-- CHAT PAGE -->
     <main class="page" id="pageChat">
-        <header class="page-header">
-            <h1 class="page-title">چاتی دەستەوژیر</h1>
-            <p class="page-subtitle">نامەکان دوای ٢٤ کاتژمێر دەسڕێنەوە</p>
+        <header class="page-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+                <h1 class="page-title">چاتی دەستەوژیر</h1>
+                <p class="page-subtitle">نامەکان دوای ٢٤ کاتژمێر دەسڕێنەوە</p>
+            </div>
+            <div style="display:flex; gap:6px;">
+                <button id="btnAdminChatActions" class="action-btn" onclick="toggleAdminChatMenu()" 
+                    style="display:none; width:auto; padding:8px 12px; font-size:12px; margin-bottom:0; background:var(--surface2);">
+                    ⚙️ کۆنترۆڵ
+                </button>
+                <button id="btnDeleteSelectedChat" class="action-btn danger-btn" onclick="deleteSelectedMessages()" 
+                    style="display:none; width:auto; padding:8px 12px; font-size:12px; margin-bottom:0;">
+                    سڕینەوە
+                </button>
+            </div>
         </header>
+
+        <!-- Admin Chat Menu Overlay -->
+        <div id="adminChatMenu" style="display:none; background:var(--glass); backdrop-filter:blur(20px); padding:16px; border-radius:var(--radius); border:1px solid var(--glass-border); margin-bottom:12px;">
+            <div style="font-size:13px; font-weight:700; margin-bottom:12px; color:var(--accent2);">کۆنترۆڵی ئەدمین</div>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+                <button class="action-btn" onclick="setChatLock(true)" style="background:rgba(255,152,0,0.1); color:#f57c00; font-size:11px; margin-bottom:0;">داخستنی چات</button>
+                <button class="action-btn" onclick="setChatLock(false)" style="background:rgba(76,175,80,0.1); color:#388e3c; font-size:11px; margin-bottom:0;">کردنەوەی چات</button>
+                <button class="action-btn danger-btn" onclick="clearAllChat()" style="grid-column: 1 / -1; font-size:11px; margin-bottom:0;">سڕینەوەی هەموو نامەکان 🗑️</button>
+            </div>
+        </div>
         <div id="chatContainer" style="display: flex; flex-direction: column; gap: 12px; padding-bottom: 80px;">
             <!-- Messages load here -->
         </div>

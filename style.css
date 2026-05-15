@@ -166,6 +166,12 @@ input {
     font-weight: 500;
 }
 
+.btn-win, .btn-lose {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transform: translateZ(0);
+}
+
 /* ===== CHAT STYLES ===== */
 .chat-input-area {
     position: fixed;
