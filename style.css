@@ -47,6 +47,14 @@ body {
     -webkit-tap-highlight-color: transparent;
     -webkit-user-select: none;
     user-select: none;
+    /* Hardware acceleration */
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+}
+
+input {
+    -webkit-user-select: text;
+    user-select: text;
 }
 
 /* ===== TAB BAR ===== */
@@ -1240,6 +1248,7 @@ body {
     align-items: center;
     justify-content: center;
     padding: 20px;
+    transition: opacity 0.5s ease, visibility 0.5s;
 }
 
 .login-box {

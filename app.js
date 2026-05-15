@@ -110,12 +110,8 @@ if (dbRef) {
     dbRef.on('value', (snapshot) => {
         const remoteData = snapshot.val();
         if (remoteData) {
-            // Check if data actually changed to avoid redundant renders
-            const newData = normalizeData(remoteData);
-            if (JSON.stringify(newData) !== JSON.stringify(data)) {
-                data = newData;
-                renderCurrentPage();
-            }
+            data = normalizeData(remoteData);
+            renderCurrentPage();
         }
     });
 }
@@ -125,7 +121,11 @@ if (photoRef) {
         const photos = snapshot.val();
         if (photos) {
             playerPhotos = photos;
-            renderCurrentPage();
+            // Only re-render if we are in a place where photos matter
+            const activeTab = document.querySelector('.tab-item.active');
+            if (activeTab && (['leaderboard', 'settings', 'record'].includes(activeTab.dataset.tab))) {
+                renderCurrentPage();
+            }
         }
     });
 }
@@ -970,7 +970,12 @@ const AUTH_PASS = "16188";
 
 function checkAuth() {
     if (sessionStorage.getItem('isLoggedIn') === 'true') {
-        document.getElementById('loginScreen').style.display = 'none';
+        const loginScreen = document.getElementById('loginScreen');
+        if (loginScreen) {
+            loginScreen.style.opacity = '0';
+            loginScreen.style.pointerEvents = 'none';
+            setTimeout(() => { loginScreen.style.display = 'none'; }, 500);
+        }
         document.getElementById('btnLogout').style.display = 'flex';
         applyPermissions();
     }
