@@ -61,7 +61,6 @@ input {
 .tab-bar {
     position: fixed;
     bottom: 12px;
-    /* Floating tab bar */
     left: 50%;
     transform: translateX(-50%);
     width: 92%;
@@ -70,13 +69,14 @@ input {
     justify-content: space-around;
     align-items: center;
     height: 64px;
-    background: rgba(255, 255, 255, 0.8);
+    background: rgba(255, 255, 255, 0.85);
     backdrop-filter: blur(25px) saturate(180%);
     -webkit-backdrop-filter: blur(25px) saturate(180%);
     border: 1px solid var(--glass-border);
     border-radius: 32px;
-    z-index: 100;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+    z-index: 999 !important; /* Always on top of pages */
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+    cursor: pointer;
 }
 
 .tab-item {
@@ -164,6 +164,111 @@ input {
     font-size: 15px;
     margin-top: 4px;
     font-weight: 500;
+}
+
+/* ===== CHAT STYLES ===== */
+.chat-input-area {
+    position: fixed;
+    bottom: 90px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 92%;
+    max-width: 360px;
+    background: var(--glass);
+    backdrop-filter: blur(25px);
+    border: 1px solid var(--glass-border);
+    padding: 8px 8px 8px 16px;
+    border-radius: 30px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    z-index: 500;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+}
+
+.chat-input-area input {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-size: 15px;
+    font-family: inherit;
+}
+
+.chat-input-area button {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: none;
+    background: var(--accent);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.chat-bubble {
+    padding: 12px 16px;
+    border-radius: 20px;
+    background: var(--surface);
+    border: 1px solid rgba(0,0,0,0.05);
+    max-width: 85%;
+    align-self: flex-start;
+    position: relative;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+}
+
+.chat-bubble.mine {
+    background: var(--accent);
+    color: white;
+    align-self: flex-end;
+    border: none;
+}
+
+.chat-time {
+    font-size: 10px;
+    opacity: 0.6;
+    margin-top: 4px;
+    text-align: left;
+}
+.chat-bubble.mine .chat-time { text-align: right; }
+
+/* ===== RANKINGS GLOW & FIREWORKS ===== */
+@keyframes rankGlow {
+    0%, 100% { box-shadow: 0 0 10px rgba(255, 215, 0, 0.1); border-color: rgba(255, 215, 0, 0.2); }
+    50% { box-shadow: 0 0 25px rgba(255, 215, 0, 0.5); border-color: rgba(255, 215, 0, 0.8); }
+}
+
+@keyframes rankGlowSilver {
+    0%, 100% { box-shadow: 0 0 10px rgba(192, 192, 192, 0.1); border-color: rgba(192, 192, 192, 0.2); }
+    50% { box-shadow: 0 0 20px rgba(192, 192, 192, 0.4); border-color: rgba(192, 192, 192, 0.6); }
+}
+
+@keyframes rankGlowBronze {
+    0%, 100% { box-shadow: 0 0 10px rgba(205, 127, 50, 0.1); border-color: rgba(205, 127, 50, 0.2); }
+    50% { box-shadow: 0 0 15px rgba(205, 127, 50, 0.4); border-color: rgba(205, 127, 50, 0.6); }
+}
+
+@keyframes fireworkSparkle {
+    0%, 100% { transform: scale(0); opacity: 0; }
+    50% { transform: scale(1.2); opacity: 0.8; }
+}
+
+.glow-rank-1 { animation: rankGlow 3s infinite ease-in-out; position: relative; }
+.glow-rank-2 { animation: rankGlowSilver 3.5s infinite ease-in-out; position: relative; }
+.glow-rank-3 { animation: rankGlowBronze 4s infinite ease-in-out; position: relative; }
+
+.firework-particle {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #FFD700;
+    pointer-events: none;
+    animation: fireworkSparkle 2s infinite;
 }
 
 .month-badge,
@@ -862,7 +967,7 @@ input {
 }
 
 .player-name-input input {
-    width: 120px;
+    width: 100px;
     border: none;
     background: transparent;
     color: var(--text);
@@ -1130,7 +1235,7 @@ input {
     display: none;
     align-items: center;
     justify-content: center;
-    z-index: 200;
+    z-index: 5000;
     padding: 20px
 }
 
@@ -1222,7 +1327,7 @@ input {
     color: var(--text);
     font-size: 13px;
     font-weight: 600;
-    z-index: 300;
+    z-index: 9999;
     transition: transform .4s cubic-bezier(.22, 1, .36, 1);
     border: 1px solid rgba(0, 0, 0, 0.08);
     white-space: nowrap;
@@ -1243,7 +1348,7 @@ input {
     position: fixed;
     inset: 0;
     background: var(--bg);
-    z-index: 1000;
+    z-index: 8000;
     display: flex;
     align-items: center;
     justify-content: center;

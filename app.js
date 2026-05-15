@@ -6,7 +6,7 @@ const AVATAR_COLORS = [
     ['#4a7dff','#74b9ff'],['#00b894','#55efc4'],['#ff5c72','#ff8a9a'],['#636e72','#b2bec3']
 ];
 
-let playerPhotos = {}; // Removed
+let playerPhotos = {}; // THE VAULT: Keeps heavy images out of the main logic
 
 function getDefaultData() {
     const now = new Date();
@@ -33,11 +33,15 @@ function loadData() {
 // ===== FIREBASE INIT =====
 let database = null;
 let dbRef = null;
+let photoRef = null; 
+let chatRef = null; // Node for anonymous chat
 
 try {
     if (typeof firebase !== 'undefined' && firebase.database) {
         database = firebase.database();
         dbRef = database.ref('competitionData');
+        photoRef = database.ref('playerPhotos');
+        chatRef = database.ref('chatMessages');
         console.log("Firebase initialized successfully.");
     } else {
         console.warn("Firebase SDK not loaded. Running in offline/localStorage mode.");
@@ -94,7 +98,12 @@ function performFirebaseSave() {
     }
 }
 
-function savePhotos() {} // Removed photo sync
+function savePhotos() {
+    localStorage.setItem('playerPhotos', JSON.stringify(playerPhotos));
+    if (photoRef && sessionStorage.getItem('userRole') === 'admin') {
+        photoRef.set(playerPhotos).catch(e => console.error("Photo Sync Error:", e));
+    }
+}
 
 let data = normalizeData(loadData());
 
@@ -109,6 +118,30 @@ if (dbRef) {
     });
 }
 
+if (photoRef) {
+    photoRef.on('value', (snapshot) => {
+        const photos = snapshot.val();
+        if (photos) {
+            playerPhotos = photos;
+            const activeTab = document.querySelector('.tab-item.active');
+            if (activeTab && (['leaderboard', 'settings', 'record'].includes(activeTab.dataset.tab))) {
+                renderCurrentPage();
+            }
+        }
+    });
+}
+
+let chatMessages = {};
+if (chatRef) {
+    chatRef.on('value', (snapshot) => {
+        chatMessages = snapshot.val() || {};
+        const activeTab = document.querySelector('.tab-item.active');
+        if (activeTab && activeTab.dataset.tab === 'chat') {
+            renderChatPage();
+        }
+    });
+}
+
 function renderCurrentPage() {
     const activeTab = document.querySelector('.tab-item.active');
     if (!activeTab) return;
@@ -117,6 +150,7 @@ function renderCurrentPage() {
     if (target === 'record') renderRecordPage();
     if (target === 'annual') renderAnnualPage();
     if (target === 'rankings') renderRankingsPage();
+    if (target === 'chat') renderChatPage();
     if (target === 'settings') renderSettings();
 }
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
@@ -134,6 +168,7 @@ document.querySelectorAll('.tab-item').forEach(tab => {
             record:'pageRecord', 
             annual:'pageAnnual', 
             rankings:'pageRankings',
+            chat:'pageChat',
             settings:'pageSettings' 
         };
         document.getElementById(map[target]).classList.add('active');
@@ -141,8 +176,16 @@ document.querySelectorAll('.tab-item').forEach(tab => {
         if (target === 'record') renderRecordPage();
         if (target === 'annual') renderAnnualPage();
         if (target === 'rankings') renderRankingsPage();
+        if (target === 'chat') renderChatPage();
         if (target === 'settings') renderSettings();
     });
+});
+
+// Chat Enter Key
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && document.activeElement.id === 'chatInput') {
+        sendChatMessage();
+    }
 });
 
 function switchTab(tabName) {
@@ -180,8 +223,9 @@ document.getElementById('modalOverlay').addEventListener('click', e => { if (e.t
 function getAvatarHTML(p, sizeClass, extraStyle = '') {
     const origIdx = data.players.findIndex(dp => dp.id === p.id);
     const col = AVATAR_COLORS[origIdx % AVATAR_COLORS.length];
-    const bg = `background:linear-gradient(135deg,${col[0]},${col[1]})`;
-    const content = getInitial(p.name);
+    const photo = playerPhotos[p.id];
+    const bg = photo ? `background-image:url(${photo})` : `background:linear-gradient(135deg,${col[0]},${col[1]})`;
+    const content = photo ? '' : getInitial(p.name);
     return `<div class="${sizeClass}" style="${bg};${extraStyle}">${content}</div>`;
 }
 
@@ -521,14 +565,37 @@ function renderRankingsPage() {
             borderColor = 'rgba(52,199,89,0.2)';
         }
 
-        html += `<div class="champion-card" style="margin-bottom:0; background:${cardBg}; border:1px solid ${borderColor}; padding:18px; border-radius:var(--radius); display:flex; align-items:center; gap:16px; backdrop-filter:blur(15px); -webkit-backdrop-filter:blur(15px);">
-            <div class="champion-rank" style="font-size:20px; width:34px; text-align:center; font-weight:900; color:${textColor}">
+        let glowClass = '';
+        let fireworkHTML = '';
+        if (i === 0) {
+            glowClass = 'glow-rank-1';
+            fireworkHTML = `<div style="position:absolute; inset:0; pointer-events:none; overflow:hidden; border-radius:inherit;">
+                <div class="firework-particle" style="top:10%; left:20%; animation-delay:0s;"></div>
+                <div class="firework-particle" style="top:70%; left:80%; animation-delay:0.5s; background:#fff;"></div>
+                <div class="firework-particle" style="top:40%; left:50%; animation-delay:1s; background:#FFD700;"></div>
+            </div>`;
+        } else if (i === 1) {
+            glowClass = 'glow-rank-2';
+            fireworkHTML = `<div style="position:absolute; inset:0; pointer-events:none; overflow:hidden; border-radius:inherit;">
+                <div class="firework-particle" style="top:20%; left:70%; animation-delay:0.3s; background:#C0C0C0;"></div>
+                <div class="firework-particle" style="top:80%; left:10%; animation-delay:0.8s; background:#fff;"></div>
+            </div>`;
+        } else if (i === 2) {
+            glowClass = 'glow-rank-3';
+            fireworkHTML = `<div style="position:absolute; inset:0; pointer-events:none; overflow:hidden; border-radius:inherit;">
+                <div class="firework-particle" style="top:15%; left:15%; animation-delay:0.6s; background:#CD7F32;"></div>
+            </div>`;
+        }
+
+        html += `<div class="champion-card ${glowClass}" style="margin-bottom:0; background:${cardBg}; border:1px solid ${borderColor}; padding:18px; border-radius:var(--radius); display:flex; align-items:center; gap:16px; backdrop-filter:blur(15px); -webkit-backdrop-filter:blur(15px); position:relative; overflow:hidden;">
+            ${fireworkHTML}
+            <div class="champion-rank" style="font-size:20px; width:34px; text-align:center; font-weight:900; color:${textColor}; position:relative; z-index:1;">
                 ${isTop3 ? medals[i] : (i + 1)}
             </div>
-            <div class="champion-info" style="flex:1; text-align:right;">
+            <div class="champion-info" style="flex:1; text-align:right; position:relative; z-index:1;">
                 <div class="champion-name" style="font-size:16px; font-weight:700; color:${textColor}">${esc(s[0])}</div>
             </div>
-            <div class="champion-wins" style="color:${winColor}; font-size:18px; font-weight:900; margin-right:auto; margin-left:0;">${s[1]}</div>
+            <div class="champion-wins" style="color:${winColor}; font-size:18px; font-weight:900; margin-right:auto; margin-left:0; position:relative; z-index:1;">${s[1]}</div>
         </div>`;
     });
     
@@ -597,10 +664,20 @@ function renderSettings() {
     const list = document.getElementById('playerNamesList');
     let html = '';
     data.players.forEach((p, i) => {
+        const hasPhoto = !!playerPhotos[p.id];
+        const deletePhotoBtn = `<button class="btn-photo btn-delete-photo" 
+            onclick="${hasPhoto ? `deletePlayerPhoto(${p.id})` : ''}" 
+            style="${!hasPhoto ? 'opacity:0.2; cursor:default' : ''}" 
+            title="Delete Photo">🗑️</button>`;
         html += `<div class="player-name-input">
             <label>${i+1}.</label>
             <input type="text" value="${esc(p.name)}" id="nameInput${i}" placeholder="Player ${i+1}" maxlength="20">
-            <button class="btn-delete-player" onclick="deletePlayer(${p.id})" title="Remove">✕</button>
+            <button class="btn-photo" onclick="triggerPhotoUpload(${p.id})" title="Change Photo">📷</button>
+            <div style="display:flex; gap:6px; flex-shrink:0;">
+                ${deletePhotoBtn}
+                <button class="btn-delete-player" onclick="deletePlayer(${p.id})" title="Remove">✕</button>
+            </div>
+            <div style="flex: 1;"></div>
             <label class="toggle-switch" title="Toggle Visibility">
                 <input type="checkbox" ${!p.isHidden ? 'checked' : ''} onchange="togglePlayerVisibility(${p.id})">
                 <span class="slider"></span>
@@ -760,7 +837,48 @@ function addHistoricalRecord() {
     }
 }
 
-function triggerPhotoUpload() {} // Removed
+function triggerPhotoUpload(playerId) {
+    photoTargetId = playerId;
+    document.getElementById('playerPhotoInput').click();
+}
+
+function compressAndSavePhoto(playerId, base64) {
+    const img = new Image();
+    img.src = base64;
+    img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const size = 180; // Small size for performance
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        
+        // Square crop logic
+        const min = Math.min(img.width, img.height);
+        const sx = (img.width - min) / 2;
+        const sy = (img.height - min) / 2;
+        
+        ctx.drawImage(img, sx, sy, min, min, 0, 0, size, size);
+        const compressed = canvas.toDataURL('image/jpeg', 0.5); // Low quality to save space
+        
+        playerPhotos[playerId] = compressed;
+        savePhotos();
+        renderSettings();
+        renderLeaderboard();
+        showToast("وێنەکە بچووک کرایەوە و پاشەکەوت کرا");
+    };
+}
+
+document.getElementById('playerPhotoInput').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file || photoTargetId === null) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        compressAndSavePhoto(photoTargetId, event.target.result);
+        photoTargetId = null; 
+        e.target.value = '';
+    };
+    reader.readAsDataURL(file);
+});
 
 document.getElementById('btnSaveNames').addEventListener('click', () => {
     data.players.forEach((p, i) => {
@@ -884,7 +1002,24 @@ function togglePlayerVisibility(playerId) {
     }
 }
 
-function deletePlayerPhoto() {} // Removed
+function deletePlayerPhoto(playerId) {
+    const player = data.players.find(p => p.id === playerId);
+    if (!player || !playerPhotos[player.id]) return;
+
+    showModal('وێنەکە دەسڕیتەوە؟', 'وێنەی "' + player.name + '" دەسڕێتەوە؟', [
+        { text: 'پاشگەزبوونەوە', class: 'cancel' },
+        { text: 'سڕینەوە', class: 'danger', action: () => {
+            delete playerPhotos[player.id];
+            
+            renderSettings();
+            renderLeaderboard();
+            if (typeof renderRecordPage === 'function') renderRecordPage();
+            
+            savePhotos(); 
+            showToast('وێنەکە بەسەرکەوتوویی سڕایەوە!');
+        }}
+    ]);
+}
 
 function deletePlayer(playerId) {
     if (data.players.length <= 2) { showToast('Minimum 2 players required'); return; }
@@ -909,6 +1044,7 @@ function checkAuth() {
         if (loginScreen) {
             loginScreen.style.opacity = '0';
             loginScreen.style.pointerEvents = 'none';
+            loginScreen.style.zIndex = '-1'; // Send to back
             setTimeout(() => { loginScreen.style.display = 'none'; }, 500);
         }
         document.getElementById('btnLogout').style.display = 'flex';
@@ -1160,7 +1296,8 @@ async function generateWinnerImage() {
         const rank = podiumRanks[i];
         const size = rank === 1 ? 120 : 95;
         const color = rank === 1 ? '#FFD700' : rank === 2 ? '#C0C0C0' : '#CD7F32';
-        const img = `background:linear-gradient(135deg, ${color}, #fff)`;
+        const playerPhoto = playerPhotos[p.id];
+        const img = playerPhoto ? `background-image:url(${playerPhoto})` : `background:linear-gradient(135deg, ${color}, #fff)`;
         
         pHTML += `
             <div style="display:flex; flex-direction:column; align-items:center; gap:10px; width:110px;">
@@ -1223,4 +1360,61 @@ async function generateWinnerImage() {
             showToast("Error generating image.");
         }
     }, 600);
+}
+// ===== ANONYMOUS CHAT =====
+const myChatId = () => {
+    let id = localStorage.getItem('myChatId');
+    if (!id) {
+        id = 'anon_' + Math.random().toString(36).substr(2, 9);
+        localStorage.setItem('myChatId', id);
+    }
+    return id;
+};
+
+function sendChatMessage() {
+    const input = document.getElementById('chatInput');
+    const text = input.value.trim();
+    if (!text || !chatRef) return;
+
+    const msg = {
+        sender: myChatId(),
+        text: text,
+        timestamp: Date.now()
+    };
+
+    chatRef.push(msg);
+    input.value = '';
+}
+
+function renderChatPage() {
+    const container = document.getElementById('chatContainer');
+    if (!container) return;
+    const now = Date.now();
+    const limit = 24 * 60 * 60 * 1000; 
+
+    const sorted = Object.values(chatMessages)
+        .filter(m => (now - m.timestamp) < limit)
+        .sort((a, b) => a.timestamp - b.timestamp);
+
+    let html = '';
+    const myId = myChatId();
+
+    sorted.forEach(m => {
+        const isMine = m.sender === myId;
+        const timeStr = new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        
+        html += `
+            <div class="chat-bubble ${isMine ? 'mine' : ''}">
+                <div style="font-size: 14px;">${esc(m.text)}</div>
+                <div class="chat-time">${timeStr}</div>
+            </div>
+        `;
+    });
+
+    if (sorted.length === 0) {
+        html = `<div class="no-data">هیچ نامەیەک نییە لێرە...<br>یەکەم نامە بنووسە!</div>`;
+    }
+
+    container.innerHTML = html;
+    container.scrollTop = container.scrollHeight;
 }
