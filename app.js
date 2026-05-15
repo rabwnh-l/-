@@ -334,36 +334,67 @@ function renderLeaderboard() {
     rest.innerHTML = restHTML;
 }
 
-// ===== RECORD GAME =====
 function renderRecordPage() {
     const grid = document.getElementById('playersGrid');
+    if (!grid) return;
     let html = '';
-    data.players.forEach((p, i) => {
-        if (p.isHidden) return;
+    
+    // Sort players by points for the record view as well
+    const sorted = [...data.players].filter(p => !p.isHidden);
+    
+    sorted.forEach((p, i) => {
         const pointStr = p.points > 0 ? '+' + p.points : '' + p.points;
-        let ydayPoints = undefined;
-        if (data.yesterdayState) {
-            const ydayPlayer = data.yesterdayState.find(yp => yp.id === p.id);
-            if (ydayPlayer) ydayPoints = ydayPlayer.points;
-        }
+        const colorClass = p.points > 0 ? 'pos' : (p.points < 0 ? 'neg' : '');
         
-        html += `<div class="player-record-card" id="prc-${i}">
-            ${getAvatarHTML(p, 'player-avatar')}
-            <div class="player-record-info">
-                <div class="player-record-name">${esc(p.name)}</div>
-                <div class="player-record-points">Pts: ${pointStr} · ${p.gamesPlayed} games</div>
-            </div>
-            <div class="record-control" style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
-                <button class="btn-lose" style="padding:0; width:36px; height:36px; display:flex; align-items:center; justify-content:center; font-size:18px;" onclick="recordResult(${i},'lose')">-</button>
-                <div style="display:flex; flex-direction:column; align-items:center; min-width:44px;">
-                    <div style="font-weight:900; font-size:17px;">${pointStr}</div>
-                    ${ydayPoints !== undefined ? `<div style="font-size:11px; color:var(--red); margin-top:1px; font-weight:700;">${ydayPoints > 0 ? '+'+ydayPoints : ydayPoints}</div>` : ''}
+        html += `
+            <div class="record-card premium-glass" id="prc-${p.id}">
+                <div class="record-avatar-box">
+                    ${getAvatarHTML(p, 'record-avatar-large')}
                 </div>
-                <button class="btn-win" style="padding:0; width:36px; height:36px; display:flex; align-items:center; justify-content:center; font-size:18px;" onclick="recordResult(${i},'win')">+</button>
+                <div class="record-main-info">
+                    <div class="record-name">${esc(p.name)}</div>
+                    <div class="record-stats">${p.wins} W · ${p.losses} L · ${p.gamesPlayed} G</div>
+                </div>
+                <div class="record-actions">
+                    <button class="record-btn btn-minus" onclick="recordResultById(${p.id}, 'lose')">
+                        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="3"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    </button>
+                    <div class="record-score ${colorClass}" id="score-val-${p.id}">${pointStr}</div>
+                    <button class="record-btn btn-plus" onclick="recordResultById(${p.id}, 'win')">
+                        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    </button>
+                </div>
             </div>
-        </div>`;
+        `;
     });
     grid.innerHTML = html;
+}
+
+function recordResultById(playerId, type) {
+    const p = data.players.find(x => x.id === playerId);
+    if (!p) return;
+    
+    if (type === 'win') { p.points++; p.wins++; } else { p.points--; p.losses++; }
+    p.gamesPlayed++;
+    saveData();
+
+    // Instant Update UI
+    const scoreEl = document.getElementById(`score-val-${playerId}`);
+    const card = document.getElementById(`prc-${playerId}`);
+    if (scoreEl) {
+        const pointStr = p.points > 0 ? '+' + p.points : '' + p.points;
+        scoreEl.textContent = pointStr;
+        scoreEl.className = `record-score ${p.points > 0 ? 'pos' : (p.points < 0 ? 'neg' : '')}`;
+        
+        // Animated Flash
+        const flash = document.createElement('div');
+        flash.className = 'point-flash-new ' + type;
+        flash.textContent = type === 'win' ? '+1' : '-1';
+        card.appendChild(flash);
+        setTimeout(() => flash.remove(), 600);
+    }
+    
+    showToast(p.name + (type === 'win' ? ' +1 Win' : ' -1 Loss'));
 }
 
 function recordResult(index, type) {
@@ -1526,4 +1557,13 @@ function updateChatUIStatus() {
             input.placeholder = "نامەیەک بنووسە...";
         }
     }
+}
+
+function manualSync() {
+    if (sessionStorage.getItem('userRole') !== 'admin') {
+        showToast("تەنها ئەدمین دەتوانێت پاشەکەوت بکات");
+        return;
+    }
+    saveData(true); // Force immediate sync
+    showToast("هەموو خاڵەکان پاشەکەوت کران! ✅");
 }

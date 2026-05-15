@@ -682,87 +682,130 @@ input {
     gap: 12px;
 }
 
-.player-record-card {
+/* ===== PREMIUM RECORD CARDS ===== */
+.record-card {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 16px;
-    border-radius: var(--radius);
-    background: var(--glass);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid var(--glass-border);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+    gap: 16px;
+    padding: 20px;
+    border-radius: 24px;
+    margin-bottom: 12px;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.player-avatar {
-    width: 44px;
-    height: 44px;
-    border-radius: 14px;
-    /* Squircle style */
+.premium-glass {
+    background: rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(25px) saturate(180%);
+    -webkit-backdrop-filter: blur(25px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
+}
+
+.record-avatar-box {
+    flex-shrink: 0;
+}
+
+.record-avatar-large {
+    width: 56px;
+    height: 56px;
+    border-radius: 18px;
     display: flex;
     align-items: center;
     justify-content: center;
+    font-size: 20px;
     font-weight: 800;
-    font-size: 16px;
     color: white;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.1);
 }
 
-.player-record-info {
+.record-main-info {
     flex: 1;
-    min-width: 0
+    min-width: 0;
 }
 
-.player-record-name {
-    font-weight: 700;
-    font-size: 14px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis
+.record-name {
+    font-size: 17px;
+    font-weight: 800;
+    color: var(--text);
+    margin-bottom: 2px;
 }
 
-.player-record-points {
-    font-size: 11px;
-    color: var(--text3);
-    margin-top: 1px
-}
-
-.record-btns {
-    display: flex;
-    gap: 6px;
-    flex-shrink: 0
-}
-
-.btn-win,
-.btn-lose {
-    border: none;
-    padding: 8px 14px;
-    border-radius: var(--radius-sm);
-    font-weight: 700;
+.record-stats {
     font-size: 12px;
+    color: var(--text3);
+    font-weight: 600;
+}
+
+.record-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(0,0,0,0.03);
+    padding: 6px;
+    border-radius: 20px;
+}
+
+.record-btn {
+    width: 48px;
+    height: 48px;
+    border-radius: 16px;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     cursor: pointer;
-    transition: all .15s;
-    font-family: inherit
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    touch-action: manipulation;
 }
 
-.btn-win {
-    background: linear-gradient(135deg, #00b894, #00cec9);
-    color: #fff
+.btn-minus {
+    background: white;
+    color: #ff3b30;
+    box-shadow: 0 4px 12px rgba(255,59,48,0.15);
 }
 
-.btn-win:active {
+.btn-plus {
+    background: var(--accent);
+    color: white;
+    box-shadow: 0 4px 12px rgba(0,122,255,0.25);
+}
+
+.record-btn:active {
     transform: scale(0.9);
-    filter: brightness(0.8)
 }
 
-.btn-lose {
-    background: linear-gradient(135deg, #e17055, #ff5c72);
-    color: #fff
+.record-score {
+    font-size: 20px;
+    font-weight: 900;
+    min-width: 44px;
+    text-align: center;
+    color: var(--text);
 }
 
-.btn-lose:active {
-    transform: scale(0.9);
-    filter: brightness(0.8)
+.record-score.pos { color: var(--accent); }
+.record-score.neg { color: #ff3b30; }
+
+.point-flash-new {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 40px;
+    font-weight: 900;
+    pointer-events: none;
+    animation: flashIn 0.6s ease-out forwards;
+    z-index: 100;
+}
+
+.point-flash-new.win { color: var(--accent); }
+.point-flash-new.lose { color: #ff3b30; }
+
+@keyframes flashIn {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); filter: blur(10px); }
+    50% { opacity: 1; transform: translate(-50%, -80%) scale(1.2); filter: blur(0); }
+    100% { opacity: 0; transform: translate(-50%, -120%) scale(1); }
 }
 
 .point-flash {
