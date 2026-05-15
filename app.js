@@ -6,7 +6,7 @@ const AVATAR_COLORS = [
     ['#4a7dff','#74b9ff'],['#00b894','#55efc4'],['#ff5c72','#ff8a9a'],['#636e72','#b2bec3']
 ];
 
-let playerPhotos = {}; // THE VAULT: Keeps heavy images out of the main logic
+let playerPhotos = {}; // Removed
 
 function getDefaultData() {
     const now = new Date();
@@ -33,13 +33,11 @@ function loadData() {
 // ===== FIREBASE INIT =====
 let database = null;
 let dbRef = null;
-let photoRef = null; // Separate path for heavy photos
 
 try {
     if (typeof firebase !== 'undefined' && firebase.database) {
         database = firebase.database();
         dbRef = database.ref('competitionData');
-        photoRef = database.ref('playerPhotos');
         console.log("Firebase initialized successfully.");
     } else {
         console.warn("Firebase SDK not loaded. Running in offline/localStorage mode.");
@@ -96,12 +94,7 @@ function performFirebaseSave() {
     }
 }
 
-function savePhotos() {
-    localStorage.setItem('playerPhotos', JSON.stringify(playerPhotos));
-    if (photoRef && sessionStorage.getItem('userRole') === 'admin') {
-        photoRef.set(playerPhotos).catch(e => console.error("Photo Sync Error:", e));
-    }
-}
+function savePhotos() {} // Removed photo sync
 
 let data = normalizeData(loadData());
 
@@ -112,20 +105,6 @@ if (dbRef) {
         if (remoteData) {
             data = normalizeData(remoteData);
             renderCurrentPage();
-        }
-    });
-}
-
-if (photoRef) {
-    photoRef.on('value', (snapshot) => {
-        const photos = snapshot.val();
-        if (photos) {
-            playerPhotos = photos;
-            // Only re-render if we are in a place where photos matter
-            const activeTab = document.querySelector('.tab-item.active');
-            if (activeTab && (['leaderboard', 'settings', 'record'].includes(activeTab.dataset.tab))) {
-                renderCurrentPage();
-            }
         }
     });
 }
@@ -201,9 +180,8 @@ document.getElementById('modalOverlay').addEventListener('click', e => { if (e.t
 function getAvatarHTML(p, sizeClass, extraStyle = '') {
     const origIdx = data.players.findIndex(dp => dp.id === p.id);
     const col = AVATAR_COLORS[origIdx % AVATAR_COLORS.length];
-    const photo = playerPhotos[p.id];
-    const bg = photo ? `background-image:url(${photo})` : `background:linear-gradient(135deg,${col[0]},${col[1]})`;
-    const content = photo ? '' : getInitial(p.name);
+    const bg = `background:linear-gradient(135deg,${col[0]},${col[1]})`;
+    const content = getInitial(p.name);
     return `<div class="${sizeClass}" style="${bg};${extraStyle}">${content}</div>`;
 }
 
@@ -619,15 +597,9 @@ function renderSettings() {
     const list = document.getElementById('playerNamesList');
     let html = '';
     data.players.forEach((p, i) => {
-        const hasPhoto = !!playerPhotos[p.id];
-        const deletePhotoBtn = hasPhoto ? `<button class="btn-photo btn-delete-photo" onclick="deletePlayerPhoto(${p.id})" title="Delete Photo">🗑️</button>` : '';
         html += `<div class="player-name-input">
             <label>${i+1}.</label>
             <input type="text" value="${esc(p.name)}" id="nameInput${i}" placeholder="Player ${i+1}" maxlength="20">
-            <div style="display:flex; gap:6px; flex-shrink:0;">
-                <button class="btn-photo" onclick="triggerPhotoUpload(${p.id})" title="Change Photo">📷</button>
-                ${deletePhotoBtn}
-            </div>
             <button class="btn-delete-player" onclick="deletePlayer(${p.id})" title="Remove">✕</button>
             <label class="toggle-switch" title="Toggle Visibility">
                 <input type="checkbox" ${!p.isHidden ? 'checked' : ''} onchange="togglePlayerVisibility(${p.id})">
@@ -788,27 +760,7 @@ function addHistoricalRecord() {
     }
 }
 
-function triggerPhotoUpload(playerId) {
-    photoTargetId = playerId;
-    document.getElementById('playerPhotoInput').click();
-}
-
-document.getElementById('playerPhotoInput').addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file || photoTargetId === null) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-        const player = data.players.find(p => p.id === photoTargetId);
-        if (player) {
-            playerPhotos[player.id] = event.target.result;
-            savePhotos(); 
-            renderSettings(); 
-            renderLeaderboard();
-        }
-        photoTargetId = null; e.target.value = '';
-    };
-    reader.readAsDataURL(file);
-});
+function triggerPhotoUpload() {} // Removed
 
 document.getElementById('btnSaveNames').addEventListener('click', () => {
     data.players.forEach((p, i) => {
@@ -932,24 +884,7 @@ function togglePlayerVisibility(playerId) {
     }
 }
 
-function deletePlayerPhoto(playerId) {
-    const player = data.players.find(p => p.id === playerId);
-    if (!player || !playerPhotos[player.id]) return;
-
-    showModal('وێنەکە دەسڕیتەوە؟', 'وێنەی "' + player.name + '" دەسڕێتەوە؟', [
-        { text: 'پاشگەزبوونەوە', class: 'cancel' },
-        { text: 'سڕینەوە', class: 'danger', action: () => {
-            delete playerPhotos[player.id];
-            
-            renderSettings();
-            renderLeaderboard();
-            if (typeof renderRecordPage === 'function') renderRecordPage();
-            
-            savePhotos(); 
-            showToast('وێنەکە بەسەرکەوتوویی سڕایەوە!');
-        }}
-    ]);
-}
+function deletePlayerPhoto() {} // Removed
 
 function deletePlayer(playerId) {
     if (data.players.length <= 2) { showToast('Minimum 2 players required'); return; }
@@ -1225,8 +1160,7 @@ async function generateWinnerImage() {
         const rank = podiumRanks[i];
         const size = rank === 1 ? 120 : 95;
         const color = rank === 1 ? '#FFD700' : rank === 2 ? '#C0C0C0' : '#CD7F32';
-        const playerPhoto = playerPhotos[p.id];
-        const img = playerPhoto ? `background-image:url(${playerPhoto})` : `background:linear-gradient(135deg, ${color}, #fff)`;
+        const img = `background:linear-gradient(135deg, ${color}, #fff)`;
         
         pHTML += `
             <div style="display:flex; flex-direction:column; align-items:center; gap:10px; width:110px;">
