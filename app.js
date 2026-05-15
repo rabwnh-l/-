@@ -24,28 +24,78 @@ function loadData() {
     return getDefaultData();
 }
 // ===== FIREBASE INIT =====
-const database = firebase.database();
-const dbRef = database.ref('competitionData');
+let database = null;
+let dbRef = null;
+
+try {
+    if (typeof firebase !== 'undefined' && firebase.database) {
+        database = firebase.database();
+        dbRef = database.ref('competitionData');
+        console.log("Firebase initialized successfully.");
+    } else {
+        console.warn("Firebase SDK not loaded. Running in offline/localStorage mode.");
+    }
+} catch (e) {
+    console.error("Firebase init failed:", e);
+    database = null;
+    dbRef = null;
+}
+
+// Ensure data arrays are real JS arrays (Firebase converts arrays to objects)
+function normalizeData(d) {
+    if (!d) return d;
+    if (d.players && !Array.isArray(d.players)) {
+        d.players = Object.values(d.players);
+    }
+    if (d.monthlyResults && !Array.isArray(d.monthlyResults)) {
+        d.monthlyResults = Object.values(d.monthlyResults);
+    }
+    // Normalize nested arrays inside monthlyResults
+    if (Array.isArray(d.monthlyResults)) {
+        d.monthlyResults.forEach(r => {
+            if (r.winners && !Array.isArray(r.winners)) r.winners = Object.values(r.winners);
+            if (r.second && !Array.isArray(r.second)) r.second = Object.values(r.second);
+            if (r.third && !Array.isArray(r.third)) r.third = Object.values(r.third);
+            if (r.fourth && !Array.isArray(r.fourth)) r.fourth = Object.values(r.fourth);
+            if (r.fifth && !Array.isArray(r.fifth)) r.fifth = Object.values(r.fifth);
+            if (r.sixth && !Array.isArray(r.sixth)) r.sixth = Object.values(r.sixth);
+            if (r.seventh && !Array.isArray(r.seventh)) r.seventh = Object.values(r.seventh);
+            if (r.eighth && !Array.isArray(r.eighth)) r.eighth = Object.values(r.eighth);
+            if (r.ninth && !Array.isArray(r.ninth)) r.ninth = Object.values(r.ninth);
+            if (r.players && !Array.isArray(r.players)) r.players = Object.values(r.players);
+        });
+    }
+    // Ensure monthlyResults is always an array
+    if (!d.monthlyResults) d.monthlyResults = [];
+    if (!d.players) d.players = [];
+    return d;
+}
 
 function saveData() { 
     localStorage.setItem('competitionData', JSON.stringify(data)); 
     // Only Admin can save to Firebase
-    if (sessionStorage.getItem('userRole') === 'admin') {
-        dbRef.set(data).catch(e => console.error("Firebase Save Error:", e));
+    if (dbRef && sessionStorage.getItem('userRole') === 'admin') {
+        dbRef.set(data).then(() => {
+            console.log("Saved to Firebase");
+        }).catch(e => {
+            console.error("Firebase Save Error:", e);
+            showToast("⚠️ نەتوانرا لە سێرڤەر پاشەکەوت بکرێت. (پەیوەندی یان ڕێگەپێدان)");
+        });
     }
 }
 
-let data = loadData();
+let data = normalizeData(loadData());
 
 // Listener for real-time updates
-dbRef.on('value', (snapshot) => {
-    const remoteData = snapshot.val();
-    if (remoteData) {
-        // Deep compare or just assign? Assigning is simpler for this structure
-        data = remoteData;
-        renderCurrentPage();
-    }
-});
+if (dbRef) {
+    dbRef.on('value', (snapshot) => {
+        const remoteData = snapshot.val();
+        if (remoteData) {
+            data = normalizeData(remoteData);
+            renderCurrentPage();
+        }
+    });
+}
 
 function renderCurrentPage() {
     const activeTab = document.querySelector('.tab-item.active');
@@ -556,9 +606,11 @@ function renderHistoricalSettings() {
     if (!yearSelect) return;
     
     const currY = new Date().getFullYear();
-    yearSelect.innerHTML = `<option value="${currY}">${currY}</option>
-                            <option value="${currY-1}">${currY-1}</option>
-                            <option value="${currY-2}">${currY-2}</option>`;
+    let yearOptions = '';
+    for (let y = currY + 1; y >= 2020; y--) {
+        yearOptions += `<option value="${y}">${y}</option>`;
+    }
+    yearSelect.innerHTML = yearOptions;
     
     highlightExistingMonth(); // Initial check
     
@@ -618,55 +670,83 @@ function highlightExistingMonth() {
     if (exists) {
         select.style.borderColor = 'var(--red)';
         select.style.color = 'var(--red)';
-        if (warning) warning.style.opacity = '1';
+        if (warning) {
+            warning.style.opacity = '1';
+            warning.style.display = 'block';
+        }
     } else {
         select.style.borderColor = 'rgba(0,0,0,0.1)';
         select.style.color = 'var(--text)';
-        if (warning) warning.style.opacity = '0';
+        if (warning) {
+            warning.style.opacity = '0';
+            setTimeout(() => { if (warning.style.opacity === '0') warning.style.display = 'none'; }, 200);
+        }
     }
 }
 
 function addHistoricalRecord() {
-    const y = parseInt(document.getElementById('histYear').value);
-    const m = parseInt(document.getElementById('histMonth').value);
-    
-    const getSelected = (rankNum) => {
-        const checked = document.querySelectorAll(`input[name="rank${rankNum}"]:checked`);
-        return Array.from(checked).map(cb => {
-            const p = data.players.find(pl => pl.id == cb.value);
-            return { name: p.name, points: 0 };
-        });
-    };
+    try {
+        const yearEl = document.getElementById('histYear');
+        const monthEl = document.getElementById('histMonth');
+        if (!yearEl || !monthEl) throw new Error("Missing year/month selection elements.");
 
-    const first = getSelected('1');
-    if (first.length === 0) {
-        showToast("At least one 1st Place winner is required!");
-        return;
+        const y = parseInt(yearEl.value);
+        const m = parseInt(monthEl.value);
+        
+        if (isNaN(y) || isNaN(m)) {
+            showToast("تکایە ساڵ و مانگ هەڵبژێرە");
+            return;
+        }
+        
+        const getSelected = (rankNum) => {
+            const checked = document.querySelectorAll(`input[name="rank${rankNum}"]:checked`);
+            return Array.from(checked).map(cb => {
+                const p = data.players.find(pl => pl.id == cb.value);
+                if (!p) return null;
+                return { name: p.name, points: 0 };
+            }).filter(p => p !== null);
+        };
+
+        const first = getSelected('1');
+        if (first.length === 0) {
+            showToast("تکایە بەلایەنی کەم یەک براوەی یەکەم دیاری بکە!");
+            return;
+        }
+
+        const record = {
+            month: m,
+            year: y,
+            winners: first,
+            second: getSelected('2'),
+            third: getSelected('3'),
+            fourth: getSelected('4'),
+            fifth: getSelected('5'),
+            sixth: getSelected('6'),
+            seventh: getSelected('7'),
+            eighth: getSelected('8'),
+            ninth: getSelected('9'),
+            players: data.players.map(p => ({ name: p.name, points: 0, wins: 0, losses: 0 }))
+        };
+        
+        // Remove existing record for this month/year if any
+        data.monthlyResults = data.monthlyResults.filter(r => !(r.year === y && r.month === m));
+        data.monthlyResults.push(record);
+        
+        // Sort: Latest first
+        data.monthlyResults.sort((a, b) => (a.year !== b.year) ? b.year - a.year : b.month - a.month);
+        
+        saveData();
+        showToast(`تۆمارەکە پاشەکەوت کرا بۆ ${MONTHS[m]} ${y}`);
+        
+        // Refresh all relevant pages
+        renderAnnualPage();
+        renderRankingsPage();
+        
+        closeHistoricalPage();
+    } catch (err) {
+        console.error("Error adding historical record:", err);
+        showToast("هەڵەیەک ڕوویدا لە کاتی پاشەکەوتکردن");
     }
-
-    const record = {
-        month: m,
-        year: y,
-        winners: first,
-        second: getSelected('2'),
-        third: getSelected('3'),
-        fourth: getSelected('4'),
-        fifth: getSelected('5'),
-        sixth: getSelected('6'),
-        seventh: getSelected('7'),
-        eighth: getSelected('8'),
-        ninth: getSelected('9'),
-        players: []
-    };
-    
-    data.monthlyResults = data.monthlyResults.filter(r => !(r.year === y && r.month === m));
-    data.monthlyResults.push(record);
-    data.monthlyResults.sort((a, b) => (a.year !== b.year) ? a.year - b.year : a.month - b.month);
-    
-    saveData();
-    showToast(`Saved record for ${MONTHS[m]} ${y}`);
-    renderAnnualPage();
-    closeHistoricalPage(); // Close after saving
 }
 
 function triggerPhotoUpload(playerId) {
@@ -698,87 +778,97 @@ document.getElementById('btnSaveNames').addEventListener('click', () => {
 });
 
 document.getElementById('btnEndToday').addEventListener('click', () => {
-    showModal('End Today?', 'Lock in current ranks to see up/down changes. This will also save current points so you can reset back to this state.', [
-        { text: 'Cancel', class: 'cancel' },
-        { text: 'End Today', class: 'confirm', action: endToday }
+    showModal('کۆتایی هێنان بە ئەمڕۆ؟', 'ڕیزبەندییەکانی ئێستا جێگیر دەکرێن بۆ بینینی گۆڕانکارییەکانی بەرزبوونەوە/دابەزین.', [
+        { text: 'پاشگەزبوونەوە', class: 'cancel' },
+        { text: 'کۆتایی ئەمڕۆ', class: 'confirm', action: endToday }
     ]);
 });
 
 function endToday() {
-    const sorted = getSortedPlayers();
-    data.yesterdayRanks = {};
-    sorted.forEach((p, i) => {
-        data.yesterdayRanks[p.id] = i + 1;
-    });
-    // Save full state for "Reset Today"
-    data.yesterdayState = JSON.parse(JSON.stringify(data.players));
-    saveData();
-    showToast('Daily ranks locked! 🔒');
-    renderLeaderboard();
+    try {
+        const sorted = getSortedPlayers();
+        data.yesterdayRanks = {};
+        sorted.forEach((p, i) => {
+            data.yesterdayRanks[p.id] = i + 1;
+        });
+        // Save full state for "Reset Today"
+        data.yesterdayState = JSON.parse(JSON.stringify(data.players));
+        saveData();
+        showToast('ڕیزبەندی ڕۆژانە جێگیر کرا! 🔒');
+        renderLeaderboard();
+    } catch (err) {
+        console.error(err);
+        showToast('هەڵەیەک ڕوویدا');
+    }
 }
 
 document.getElementById('btnNewCompetition').addEventListener('click', () => {
-    showModal('End Month?', 'Save results and start a new month. Current day baseline will be cleared.', [
-        { text: 'Cancel', class: 'cancel' },
-        { text: 'End Month', class: 'confirm', action: endMonth }
+    showModal('کۆتایی مانگ؟', 'ئەنجامەکان پاشەکەوت دەکرێن و مانگێکی نوێ دەست پێدەکات.', [
+        { text: 'پاشگەزبوونەوە', class: 'cancel' },
+        { text: 'کۆتایی مانگ', class: 'confirm', action: endMonth }
     ]);
 });
 
 function endMonth() {
-    const sorted = getSortedPlayers().filter(p => p.gamesPlayed > 0);
-    const uniquePts = [...new Set(sorted.map(p => p.points))].sort((a, b) => b - a);
-    const first = sorted.filter(p => p.points === uniquePts[0]).map(p => ({ name: p.name, points: p.points }));
-    const second = uniquePts.length > 1 ? sorted.filter(p => p.points === uniquePts[1]).map(p => ({ name: p.name, points: p.points })) : [];
-    const third = uniquePts.length > 2 ? sorted.filter(p => p.points === uniquePts[2]).map(p => ({ name: p.name, points: p.points })) : [];
-    const fourth = uniquePts.length > 3 ? sorted.filter(p => p.points === uniquePts[3]).map(p => ({ name: p.name, points: p.points })) : [];
-    const fifth = uniquePts.length > 4 ? sorted.filter(p => p.points === uniquePts[4]).map(p => ({ name: p.name, points: p.points })) : [];
-    const sixth = uniquePts.length > 5 ? sorted.filter(p => p.points === uniquePts[5]).map(p => ({ name: p.name, points: p.points })) : [];
-    const seventh = uniquePts.length > 6 ? sorted.filter(p => p.points === uniquePts[6]).map(p => ({ name: p.name, points: p.points })) : [];
-    const eighth = uniquePts.length > 7 ? sorted.filter(p => p.points === uniquePts[7]).map(p => ({ name: p.name, points: p.points })) : [];
-    const ninth = uniquePts.length > 8 ? sorted.filter(p => p.points === uniquePts[8]).map(p => ({ name: p.name, points: p.points })) : [];
-    data.monthlyResults.push({
-        month: data.currentMonth, year: data.currentYear,
-        winners: first, second, third, fourth, fifth, sixth, seventh, eighth, ninth,
-        players: data.players.map(p => ({ name: p.name, points: p.points, wins: p.wins, losses: p.losses }))
-    });
-    data.players.forEach(p => { p.points = 0; p.wins = 0; p.losses = 0; p.gamesPlayed = 0; });
-    data.yesterdayRanks = {};
-    data.yesterdayState = null;
-    data.currentMonth++;
-    if (data.currentMonth > 11) { data.currentMonth = 0; data.currentYear++; }
-    saveData(); showToast('New month started! 🎉'); renderLeaderboard();
+    try {
+        const sorted = getSortedPlayers().filter(p => p.gamesPlayed > 0);
+        const uniquePts = [...new Set(sorted.map(p => p.points))].sort((a, b) => b - a);
+        const first = sorted.filter(p => p.points === uniquePts[0]).map(p => ({ name: p.name, points: p.points }));
+        const second = uniquePts.length > 1 ? sorted.filter(p => p.points === uniquePts[1]).map(p => ({ name: p.name, points: p.points })) : [];
+        const third = uniquePts.length > 2 ? sorted.filter(p => p.points === uniquePts[2]).map(p => ({ name: p.name, points: p.points })) : [];
+        const fourth = uniquePts.length > 3 ? sorted.filter(p => p.points === uniquePts[3]).map(p => ({ name: p.name, points: p.points })) : [];
+        const fifth = uniquePts.length > 4 ? sorted.filter(p => p.points === uniquePts[4]).map(p => ({ name: p.name, points: p.points })) : [];
+        const sixth = uniquePts.length > 5 ? sorted.filter(p => p.points === uniquePts[5]).map(p => ({ name: p.name, points: p.points })) : [];
+        const seventh = uniquePts.length > 6 ? sorted.filter(p => p.points === uniquePts[6]).map(p => ({ name: p.name, points: p.points })) : [];
+        const eighth = uniquePts.length > 7 ? sorted.filter(p => p.points === uniquePts[7]).map(p => ({ name: p.name, points: p.points })) : [];
+        const ninth = uniquePts.length > 8 ? sorted.filter(p => p.points === uniquePts[8]).map(p => ({ name: p.name, points: p.points })) : [];
+        data.monthlyResults.push({
+            month: data.currentMonth, year: data.currentYear,
+            winners: first, second, third, fourth, fifth, sixth, seventh, eighth, ninth,
+            players: data.players.map(p => ({ name: p.name, points: p.points, wins: p.wins, losses: p.losses }))
+        });
+        data.players.forEach(p => { p.points = 0; p.wins = 0; p.losses = 0; p.gamesPlayed = 0; });
+        data.yesterdayRanks = {};
+        data.yesterdayState = null;
+        data.currentMonth++;
+        if (data.currentMonth > 11) { data.currentMonth = 0; data.currentYear++; }
+        saveData(); showToast('مانگی نوێ دەستی پێکرد! 🎉'); renderLeaderboard();
+    } catch(err) {
+        console.error(err);
+        showToast('هەڵەیەک ڕوویدا');
+    }
 }
 
 document.getElementById('btnResetCurrent').addEventListener('click', () => {
-    showModal('Reset Month?', 'All points for this month will be cleared.', [
-        { text: 'Cancel', class: 'cancel' },
-        { text: 'Reset', class: 'danger', action: () => {
+    showModal('سفرکردنەوەی مانگ؟', 'هەموو خاڵەکانی ئەم مانگە سفر دەکرێنەوە.', [
+        { text: 'پاشگەزبوونەوە', class: 'cancel' },
+        { text: 'سفرکردنەوە', class: 'danger', action: () => {
             data.players.forEach(p => { p.points = 0; p.wins = 0; p.losses = 0; p.gamesPlayed = 0; });
             data.yesterdayRanks = {};
             data.yesterdayState = null;
-            saveData(); showToast('Month reset!'); renderLeaderboard();
+            saveData(); showToast('مانگ سفرکرایەوە!'); renderLeaderboard();
         }}
     ]);
 });
 
 document.getElementById('btnResetAll').addEventListener('click', () => {
-    showModal('Reset Everything?', 'ALL stats and history will be cleared.', [
-        { text: 'Cancel', class: 'cancel' },
-        { text: 'Reset All', class: 'danger', action: () => {
-            const playersMeta = data.players.map(p => ({ id: p.id, name: p.name, photo: p.photo }));
+    showModal('سفرکردنەوەی هەموو شتێک؟', 'هەموو ئامار و مێژووەکان دەسڕێنەوە.', [
+        { text: 'پاشگەزبوونەوە', class: 'cancel' },
+        { text: 'سفرکردنەوە', class: 'danger', action: () => {
+            const playersMeta = data.players.map(p => ({ id: p.id, name: p.name, photo: p.photo, isHidden: p.isHidden }));
             data = getDefaultData();
             data.players = playersMeta.map((m, i) => ({ ...m, points: 0, wins: 0, losses: 0, gamesPlayed: 0 }));
-            saveData(); showToast('Everything reset!'); renderLeaderboard(); renderSettings();
+            saveData(); showToast('هەموو شتێک سفرکرایەوە!'); renderLeaderboard(); renderSettings();
         }}
     ]);
 });
 
 document.getElementById('btnResetAnnual').addEventListener('click', () => {
-    showModal('Reset Annual Stats?', 'All monthly history will be cleared.', [
-        { text: 'Cancel', class: 'cancel' },
-        { text: 'Reset Annual', class: 'danger', action: () => {
+    showModal('سفرکردنەوەی ئامارەکان؟', 'هەموو مێژووی مانگەکانی پێشوو دەسڕێنەوە.', [
+        { text: 'پاشگەزبوونەوە', class: 'cancel' },
+        { text: 'سفرکردنەوە', class: 'danger', action: () => {
             data.monthlyResults = []; data.annualStats = {};
-            saveData(); showToast('Annual stats reset!'); renderAnnualPage();
+            saveData(); showToast('ئامارەکان سفرکرانەوە!'); renderAnnualPage();
         }}
     ]);
 });
@@ -1044,6 +1134,12 @@ function editMonth(m, y) {
 }
 
 // ===== INIT =====
+// One-time fix: set current month to مانگی 5 (index 4)
+if (!localStorage.getItem('monthFixApplied')) {
+    data.currentMonth = 4;
+    saveData();
+    localStorage.setItem('monthFixApplied', 'true');
+}
 checkAuth();
 renderLeaderboard();
 renderSettings();
