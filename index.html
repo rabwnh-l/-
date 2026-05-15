@@ -1,393 +1,797 @@
 <!DOCTYPE html>
 <html lang="ku" dir="rtl">
-
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport"
-        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#0d1127">
-    <title>Competition Tracker</title>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Vazirmatn:wght@400;700;900&display=swap"
-        rel="stylesheet">
-    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
-    <link rel="stylesheet" href="style.css">
-</head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>خولی ناوخۆیی</title>
+    
+    <!-- Include html2canvas for shareable card generation feature -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    
+    <!-- Firebase App and Realtime Database SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            --surface: rgba(255, 255, 255, 0.85);
+            --surface2: rgba(255, 255, 255, 0.95);
+            --accent: #4a7dff;
+            --accent2: #2d5bff;
+            --text: #1d1d1f;
+            --text2: #48484a;
+            --text3: #8e8e93;
+            --green: #34c759;
+            --red: #ff3b30;
+            --gold: #ffd700;
+            --silver: #c0c0c0;
+            --bronze: #cd7f32;
+            --radius: 20px;
+            --radius-sm: 12px;
+            --glass: rgba(255, 255, 255, 0.45);
+            --glass-border: rgba(255, 255, 255, 0.6);
+            --shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.08);
+            --safe-top: env(safe-area-inset-top, 0px);
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background: var(--bg-gradient);
+            background-attachment: fixed;
+            min-height: 100vh;
+            color: var(--text);
+            padding-bottom: calc(75px + var(--safe-bottom));
+            overflow-x: hidden;
+        }
+
+        .header {
+            background: var(--surface);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            padding: calc(16px + var(--safe-top)) 20px 16px 20px;
+            border-bottom: 1px solid var(--glass-border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: var(--shadow);
+        }
+
+        .header h1 {
+            font-size: 22px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, var(--text), var(--accent2));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .container {
+            padding: 20px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .page {
+            display: none;
+        }
+
+        .page.active {
+            display: block;
+            animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Nav Bottom Bar */
+        .nav-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-top: 1px solid var(--glass-border);
+            display: flex;
+            justify-content: space-around;
+            padding: 8px 10px calc(8px + var(--safe-bottom)) 10px;
+            z-index: 100;
+            box-shadow: 0 -4px 24px rgba(0,0,0,0.04);
+        }
+
+        .tab-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: var(--text3);
+            text-decoration: none;
+            font-size: 11px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            flex: 1;
+            background: none;
+            border: none;
+            cursor: pointer;
+            gap: 4px;
+        }
+
+        .tab-item svg {
+            width: 23px;
+            height: 23px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 2.2;
+            transition: transform 0.2s ease;
+        }
+
+        .tab-item.active {
+            color: var(--accent);
+        }
+
+        .tab-item.active svg {
+            transform: scale(1.05);
+            stroke-width: 2.5;
+        }
+
+        /* Leaderboard styling */
+        .month-badge {
+            background: var(--surface);
+            padding: 8px 16px;
+            border-radius: 30px;
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--accent2);
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--shadow);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .podium-container {
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            margin: 32px 0 24px 0;
+            padding: 0 10px;
+            gap: 12px;
+        }
+
+        .podium-player {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+            text-align: center;
+            position: relative;
+        }
+
+        .podium-avatar {
+            position: relative;
+            margin-bottom: 8px;
+        }
+
+        .avatar-ring {
+            width: 76px;
+            height: 76px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            color: #fff;
+            font-size: 26px;
+            box-shadow: 0 10px 24px rgba(0,0,0,0.12);
+            background-size: cover;
+            background-position: center;
+            border: 3px solid #fff;
+        }
+
+        .podium-first .avatar-ring { width: 94px; height: 94px; font-size: 32px; border-color: var(--gold); }
+        .podium-second .avatar-ring { border-color: var(--silver); }
+        .podium-third .avatar-ring { border-color: var(--bronze); }
+
+        .podium-crown {
+            position: absolute;
+            top: -22px;
+            left: 50%;
+            transform: translateX(-50%) rotate(-5deg);
+            font-size: 24px;
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
+            animation: float 2.5s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateX(-50%) translateY(0) rotate(-5deg); }
+            50% { transform: translateX(-50%) translateY(-4px) rotate(3deg); }
+        }
+
+        .podium-badge {
+            position: absolute;
+            bottom: -6px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--text);
+            color: #fff;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            font-size: 11px;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid #fff;
+        }
+
+        .podium-first .podium-badge { background: var(--gold); color: #000; width: 25px; height: 25px; font-size: 13px; }
+
+        .podium-name {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text);
+            max-width: 90px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+        }
+        .podium-first .podium-name { font-size: 15px; font-weight: 800; }
+
+        .podium-points {
+            font-size: 18px;
+            font-weight: 900;
+            color: var(--accent2);
+            margin: 2px 0;
+        }
+        .podium-first .podium-points { font-size: 24px; color: var(--text); }
+
+        .podium-stats { font-size: 10px; color: var(--text3); font-weight: 500; }
+
+        /* Rest list view */
+        .rest-list {
+            background: var(--surface);
+            border-radius: var(--radius);
+            padding: 8px;
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .rest-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 12px;
+            border-radius: var(--radius-sm);
+            transition: background 0.2s;
+            animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .rest-rank {
+            width: 28px;
+            font-size: 13px;
+            font-weight: 800;
+            color: var(--text3);
+        }
+
+        .rest-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin-left: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-weight: 700;
+            font-size: 15px;
+            background-size: cover;
+            background-position: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        }
+
+        .rest-info { flex: 1; }
+        .rest-name { font-size: 14px; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 4px; }
+        .rest-detail { font-size: 11px; color: var(--text3); margin-top: 1px; }
+        .rest-points { font-size: 16px; font-weight: 800; text-align: left; min-width: 45px; }
+
+        .rest-points.positive { color: var(--green); }
+        .rest-points.negative { color: var(--red); }
+        .rest-points.zero { color: var(--text3); }
+
+        .last-place { background: rgba(255, 59, 48, 0.06); border: 1px dashed rgba(255, 59, 48, 0.2); }
+        .sleep-icon { font-size: 11px; color: var(--red); font-style: italic; font-weight: 800; }
+
+        /* Rank Trend Arrow Indicator Icons */
+        .rank-trend { font-size: 10px; margin-right: 2px; font-weight: 900; }
+        .rank-trend.up { color: var(--green); }
+        .rank-trend.down { color: var(--red); }
+
+        /* Recording Panel elements */
+        .player-record-card {
+            background: var(--surface);
+            border-radius: var(--radius-sm);
+            padding: 12px 14px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--shadow);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .player-avatar {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-weight: 700;
+            font-size: 16px;
+            background-size: cover;
+            background-position: center;
+        }
+
+        .player-record-info { flex: 1; margin-right: 12px; }
+        .player-record-name { font-size: 14px; font-weight: 700; }
+        .player-record-points { font-size: 11px; color: var(--text3); margin-top: 1px; }
+
+        .btn-win, .btn-lose {
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 800;
+            font-size: 13px;
+            cursor: pointer;
+            transition: transform 0.1s, opacity 0.2s;
+        }
+        .btn-win { background: var(--green); color: #fff; }
+        .btn-lose { background: rgba(255,59,48,0.15); color: var(--red); }
+        .btn-win:active, .btn-lose:active { transform: scale(0.92); }
+
+        /* Input Custom elements */
+        .action-btn {
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            width: 100%;
+            padding: 14px;
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            margin-bottom: 10px;
+            transition: all 0.2s;
+            box-shadow: 0 4px 12px rgba(74,125,255,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .action-btn:active { transform: scale(0.98); opacity: 0.9; }
+        .action-btn.secondary { background: var(--surface); color: var(--text); border: 1px solid var(--glass-border); box-shadow: none; }
+
+        .player-name-input {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--surface);
+            padding: 8px 12px;
+            border-radius: var(--radius-sm);
+            margin-bottom: 6px;
+            border: 1px solid var(--glass-border);
+        }
+        .player-name-input label { font-size: 12px; font-weight: 700; color: var(--text3); min-width: 18px; }
+        .player-name-input input {
+            flex: 1;
+            border: none;
+            background: transparent;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text);
+            padding: 4px 0;
+        }
+        .player-name-input input:focus { outline: none; }
+
+        .btn-photo { background: rgba(0,0,0,0.04); border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+        .btn-delete-player { background: rgba(255,59,48,0.1); color: var(--red); border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; }
+
+        /* Switch Toggle */
+        .toggle-switch { position: relative; display: inline-block; width: 38px; height: 22px; margin-right: 4px; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #e5e5ea; transition: .3s cubic-bezier(0.16, 1, 0.3, 1); border-radius: 22px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 2px; bottom: 2px; background-color: white; transition: .3s cubic-bezier(0.16, 1, 0.3, 1); border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        input:checked + .slider { background-color: var(--green); }
+        input:checked + .slider:before { transform: translateX(-16px); }
+
+        /* Global Toast notifications overlay style layout setup */
+        .toast {
+            position: fixed;
+            bottom: calc(90px + var(--safe-bottom));
+            left: 50%;
+            transform: translate(-50%, 20px);
+            background: rgba(0, 0, 0, 0.85);
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-size: 13px;
+            font-weight: 600;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            white-space: nowrap;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        }
+        .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+        /* Modals & Popups layout interface structural configurations */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.3);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 200;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+
+        .modal-card {
+            background: var(--surface2);
+            border-radius: var(--radius);
+            padding: 24px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+            border: 1px solid var(--glass-border);
+            transform: scale(0.9);
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            text-align: center;
+        }
+        .modal-overlay.active .modal-card { transform: scale(1); }
+
+        .modal-title { font-size: 18px; font-weight: 800; margin-bottom: 8px; color: var(--text); }
+        .modal-msg { font-size: 14px; color: var(--text2); margin-bottom: 20px; line-height: 1.5; }
+        .modal-actions { display: flex; gap: 10px; }
+        .modal-btn { flex: 1; padding: 12px; border-radius: var(--radius-sm); border: none; font-weight: 700; font-size: 14px; cursor: pointer; transition: background 0.2s; }
+        .modal-btn.cancel { background: rgba(0,0,0,0.05); color: var(--text); }
+        .modal-btn.confirm { background: var(--accent); color: #fff; }
+        .modal-btn.danger { background: var(--red); color: #fff; }
+
+        /* Annual metrics screen elements */
+        .annual-title { font-size: 15px; font-weight: 800; color: var(--text2); margin: 20px 4px 10px 4px; }
+        .champion-card {
+            background: var(--surface);
+            border-radius: var(--radius-sm);
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--shadow);
+        }
+        .champion-rank { font-size: 20px; margin-left: 14px; }
+        .champion-info { flex: 1; }
+        .champion-name { font-size: 14px; font-weight: 700; }
+        .champion-detail { font-size: 11px; color: var(--text3); margin-top: 1px; }
+        .champion-wins { font-size: 13px; font-weight: 800; color: var(--accent2); background: rgba(74,125,255,0.08); padding: 4px 10px; border-radius: 12px; }
+
+        .month-history-card { background: var(--surface); border-radius: var(--radius-sm); padding: 14px; border: 1px solid var(--glass-border); box-shadow: var(--shadow); margin-bottom: 8px; }
+        .month-history-header { font-size: 13px; font-weight: 800; color: var(--text2); border-bottom: 1px dashed rgba(0,0,0,0.06); padding-bottom: 6px; margin-bottom: 8px; }
+        .month-history-winners { font-size: 13px; font-weight: 700; color: var(--text); }
+        .no-data { text-align: center; font-size: 13px; color: var(--text3); padding: 32px 0; font-weight: 500; }
+
+        /* Point Flash micro-animations styling implementation configurations */
+        .point-flash { position: absolute; font-weight: 900; font-size: 20px; z-index: 10; animation: flashUp 0.8s ease-out forwards; pointer-events: none; }
+        .point-flash.win { color: var(--green); right: 40px; }
+        .point-flash.lose { color: var(--red); left: 40px; }
+        @keyframes flashUp { 0% { opacity: 0; transform: translateY(0); } 30% { opacity: 1; } 100% { opacity: 0; transform: translateY(-24px); } }
+
+        /* Full page sub overlays historical log styles setup configurations */
+        .sub-page-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg-gradient); z-index: 150; display: none; padding: 20px; overflow-y: auto; padding-top: calc(20px + var(--safe-top)); padding-bottom: calc(30px + var(--safe-bottom)); }
+        .sub-page-overlay.active { display: block; animation: fadeIn 0.3s ease; }
+        .sub-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .sub-title { font-size: 19px; font-weight: 800; }
+        .btn-close-sub { background: var(--surface); border: 1px solid var(--glass-border); width: 36px; height: 36px; border-radius: 50%; font-size: 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow); }
+
+        .hist-rank-group { background: var(--surface); border-radius: var(--radius-sm); padding: 14px; margin-bottom: 10px; border: 1px solid var(--glass-border); }
+        .hist-chip { position: relative; cursor: pointer; }
+        .chip-label { display: inline-block; padding: 6px 12px; background: rgba(0,0,0,0.04); border-radius: 15px; font-size: 12px; font-weight: 600; color: var(--text2); transition: all 0.2s; border: 1px solid transparent; }
+        .hist-chip input:checked + .chip-label { background: var(--accent); color: #fff; transform: scale(1.03); box-shadow: 0 4px 10px rgba(74,125,255,0.25); }
+
+        /* Login layout structural container element setup */
+        #loginScreen {
+            position: fixed; top:0; left:0; right:0; bottom:0;
+            background: linear-gradient(135deg, #0d1127 0%, #161f44 100%);
+            z-index: 500; display: flex; flex-direction: column; justify-content: center; padding: 30px; color: #fff;
+        }
+        .login-card { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); padding: 32px 24px; border-radius: 24px; box-shadow: 0 24px 48px rgba(0,0,0,0.4); text-align: center; }
+        .login-title { font-size: 24px; font-weight: 900; margin-bottom: 6px; letter-spacing: -0.5px; }
+        .login-subtitle { font-size: 13px; color: rgba(255,255,255,0.5); margin-bottom: 32px; font-weight: 500; }
+        .login-input { width:100%; padding:14px 16px; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; color:#fff; font-size:15px; font-weight:600; margin-bottom:12px; text-align: center; transition: all 0.2s; }
+        .login-input:focus { outline:none; border-color: var(--accent); background: rgba(255,255,255,0.12); }
+        .login-btn { width:100%; padding:14px; background: #fff; color: #0d1127; border:none; border-radius:12px; font-size:15px; font-weight:800; cursor:pointer; transition: all 0.2s; box-shadow: 0 8px 24px rgba(255,255,255,0.1); }
+        .login-btn:active { transform: scale(0.98); opacity:0.9; }
+        .login-error { color: #ff453a; font-size: 12px; font-weight: 700; margin-top: 10px; min-height: 16px; }
+
+        .btn-role-select {
+            width: 100%; padding: 16px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; color: #fff; font-size: 15px; font-weight: 700; cursor: pointer; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; transition: all 0.2s;
+        }
+        .btn-role-select:active { transform: scale(0.97); background: rgba(255,255,255,0.15); }
+        .btn-role-select svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2.5; }
+    </style>
+</head>
 <body>
-    <!-- LOGIN SCREEN -->
-    <div id="loginScreen" class="login-overlay">
-        <div class="login-box">
+
+    <!-- Access Gateway Screens Layout Structure Section -->
+    <div id="loginScreen">
+        <div class="login-card" style="max-width: 400px; margin: 0 auto; width: 100%;">
+            <div style="font-size: 42px; margin-bottom: 12px;">🏆</div>
             <h2 class="login-title">چوونە ناو کێبڕکێ</h2>
             <p class="login-subtitle">ئاستی چوونە ناو دیاری بکە بۆ بەردەوامبوون</p>
-
-            <div id="loginOptions" class="login-form">
-                <button class="action-btn login-btn" onclick="showAdminLogin()">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
-                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                    </svg>
-                    چوونە ناو وەک ئەدمین
+            
+            <!-- Level Picker Form Configuration Structure Section -->
+            <div id="loginOptions" style="display: flex; flex-direction: column;">
+                <button class="btn-role-select" onclick="handleViewerLogin()" style="border-left: 4px solid var(--green);">
+                    <span>👁️ چوونە ناو وەک بینەر</span>
+                    <svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
                 </button>
-                <button class="action-btn reset-btn" onclick="handleViewerLogin()"
-                    style="background:var(--surface2); border:1px solid rgba(0,0,0,0.1)">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                        <circle cx="12" cy="12" r="3" />
-                    </svg>
-                    چوونە ناو وەک بینەر
+                <button class="btn-role-select" onclick="showAdminLogin()" style="border-left: 4px solid var(--accent); margin-bottom: 0;">
+                    <span>⚡ چوونە ناو وەک ئەدمین</span>
+                    <svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
                 </button>
             </div>
 
-            <div id="adminLoginForm" class="login-form" style="display:none">
-                <input type="text" id="loginUser" placeholder="ناوی بەکارهێنەر" autocomplete="off">
-                <input type="password" id="loginPass" placeholder="وشەی نهێنی">
-                <div style="display:flex; gap:8px">
-                    <button class="action-btn reset-btn" onclick="showLoginOptions()"
-                        style="flex:1; margin-bottom:0">گەڕانەوە</button>
-                    <button class="action-btn login-btn" onclick="handleAdminLogin()"
-                        style="flex:2; margin-bottom:0">چوونە ناو</button>
-                </div>
+            <!-- Administrator Verification Form Section Entry View Components -->
+            <div id="adminLoginForm" style="display: none; flex-direction: column;">
+                <input type="text" id="loginUser" class="login-input" placeholder="ناوی بەکارهێنەر" autocomplete="off" inputmode="numeric">
+                <input type="password" id="loginPass" class="login-input" placeholder="وشەی نهێنی" autocomplete="off" inputmode="numeric">
+                <button class="login-btn" onclick="handleAdminLogin()" style="background: var(--accent); color: white;">پەسەندکردن</button>
+                <button class="action-btn secondary" onclick="showLoginOptions()" style="margin-top: 12px; margin-bottom: 0; background: transparent; border-color: rgba(255,255,255,0.15); color: rgba(255,255,255,0.7);">گەڕانەوە</button>
+                <div id="loginError" class="login-error"></div>
             </div>
-
-            <p id="loginError" class="login-error"></p>
         </div>
     </div>
 
-    <!-- TAB BAR -->
-    <nav class="tab-bar">
+    <!-- Application Main Banner Shell Header Layout Container Wrapper Elements Block -->
+    <div class="header">
+        <h1>خولی ناوخۆیی</h1>
+        <button id="btnLogout" class="btn-delete-player" onclick="handleLogout()" title="Logout" style="width: 36px; height: 36px; display: none; background: rgba(0,0,0,0.04); color: var(--text2);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        </button>
+    </div>
+
+    <div class="container">
+        
+        <!-- PAGE 1: CURRENT STANDINGS LEADERBOARD VIEW SCREEN INSTANCE STRUCTURE SETUP -->
+        <div id="pageLeaderboard" class="page active">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <div id="currentMonthBadge" class="month-badge">⏱️ باردەکرێت...</div>
+                <button class="month-badge" onclick="generateWinnerImage()" style="background:var(--surface); color:var(--text); cursor:pointer;">
+                    <span>✨ دروستکردنی کارتی کۆتایی</span>
+                </button>
+            </div>
+
+            <div id="podiumSection" class="podium-container"></div>
+            <div id="restList" class="rest-list"></div>
+        </div>
+
+        <!-- PAGE 2: REAL-TIME SCORES AND STATS UPDATER MODERATION INTERFACE -->
+        <div id="pageRecord" class="page">
+            <div style="display: flex; gap: 8px; margin-bottom: 14px;">
+                <button class="action-btn" id="btnEndToday" style="margin-bottom:0; flex:1; background: var(--text); box-shadow: 0 4px 12px rgba(0,0,0,0.15);">🔒 کۆتایی هێنان بە ئەمڕۆ</button>
+                <button class="action-btn secondary" onclick="resetToday()" style="margin-bottom:0; flex:0.4; padding:0 10px; font-weight:700;">↩️ گەڕانەوە</button>
+            </div>
+            <div id="playersGrid"></div>
+        </div>
+
+        <!-- PAGE 3: COMPLETED ARCHIVE HISTORICAL LOG METRICS RECORDS AND LEAGUE CHAMPIONS VIEW -->
+        <div id="pageAnnual" class="page">
+            <button class="action-btn" onclick="showAllTimeRankings()" style="background: linear-gradient(135deg, #ff9500, #ffcc00); color:#000; font-weight:800; box-shadow:0 4px 12px rgba(255,149,0,0.25);">
+                🏆 بینینی ڕێزبەندی گشتی (All-Time)
+            </button>
+            <div id="annualChampions"></div>
+            <div id="yearlyChampions"></div>
+            <div id="yearlyButtonsGrid" style="display:grid; grid-template-columns:1fr; gap:10px; margin-top:24px;"></div>
+            <div id="monthlyHistory"></div>
+        </div>
+
+        <!-- PAGE 4: HISTORICAL POINTS SCOREBOARD SYSTEM TOTAL MATRIX SCREEN -->
+        <div id="pageRankings" class="page">
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+                <h2 style="font-size:20px; font-weight:900;">ڕێزبەندی گشتی خاڵەکان</h2>
+            </div>
+            <p style="font-size:12px; color:var(--text3); line-height:1.5;">ئەم ڕێزبەندییە خاڵەکانی بە درێژایی مێژووی خولەکە کۆدەکاتەوە، بەپێی دەستکەوتی مانگانە: یەکەم ١٥ خاڵ، دووەم ١٠ خاڵ، سێیەم ٨ خاڵ، و بەم شێوەیە بۆ پلەکانی تر.</p>
+            <div id="rankingsListContent"></div>
+        </div>
+
+        <!-- PAGE 5: CORE ENGINE ADMINISTRATIVE SETUP PREFERENCES CONFIGURATION SYSTEM CONTROL PANEL -->
+        <div id="pageSettings" class="page">
+            <button class="action-btn" onclick="openHistoricalPage()" style="background:var(--surface); color:var(--accent2); border:1px solid var(--glass-border); box-shadow:none;">➕ زیادکردنی تۆماری مانگەکانی پێشوو</button>
+            <button class="action-btn" onclick="openManageMonthsPage()" style="background:var(--surface); color:var(--text); border:1px solid var(--glass-border); box-shadow:none;">⚙️ بەڕێوەبردنی تۆماری مانگەکان</button>
+            
+            <div style="height:1px; background:rgba(0,0,0,0.06); margin:16px 0;"></div>
+            
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding:0 4px;">
+                <h3 style="font-size:15px; font-weight:800; color:var(--text2);">ناوەکانی کێبڕکێکاران</h3>
+                <button class="month-badge" id="btnAddPlayer" style="padding:4px 12px; font-size:12px; border-radius:10px; background:var(--accent); color:#fff; border:none;">➕ یاریزان</button>
+            </div>
+            
+            <div id="playerNamesList"></div>
+            <button class="action-btn" id="btnSaveNames" style="margin-top:12px;">💾 پاشەکەوتکردنی ناوەکان</button>
+            
+            <div style="height:1px; background:rgba(0,0,0,0.06); margin:20px 0;"></div>
+            
+            <h3 style="font-size:14px; font-weight:800; color:var(--text2); margin-bottom:10px; padding:0 4px;">کۆنترۆڵکردنی خول و داتاکان</h3>
+            <button class="action-btn" id="btnNewCompetition" style="background:var(--green); box-shadow:0 4px 12px rgba(52,199,89,0.2);">🎉 کۆتایی هێنان بە مانگ و دەستپێکی مانگی نوێ</button>
+            <button class="action-btn secondary" id="btnResetCurrent" style="color:var(--red);">⚠️ سفرکردنەوەی خاڵەکانی ئەم مانگە</button>
+            <button class="action-btn secondary" id="btnResetAnnual" style="color:var(--red);">⚠️ سڕینەوەی تەواوی ئەرشیفی مانگەکان</button>
+            <button class="action-btn secondary" id="btnResetAll" style="color:var(--red); margin-bottom:24px;">🚨 سفرکردنەوەی گشتی تەواوی سیستمەکە</button>
+            
+            <input type="file" id="playerPhotoInput" accept="image/*" style="display:none;">
+        </div>
+
+    </div>
+
+    <!-- MAIN BOTTOM TARGET PLATFORM NAVIGATION TAB BAR FOOTER WRAPPER LAYOUT CONFIGURATION -->
+    <div class="nav-bar">
         <button class="tab-item active" data-tab="leaderboard">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
-                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-            </svg>
-            <span>ڕیزبەندی مانگانە</span>
+            <svg viewBox="0 0 24 24"><path d="M12 21.25c4.556 0 8.25-3.694 8.25-8.25V6.318a.75.75 0 00-.472-.695l-7.5-3a.75.75 0 00-.556 0l-7.5 3a.75.75 0 00-.472.695V13c0 4.556 3.694 8.25 8.25 8.25z"/></svg>
+            <span>ڕێزبەندی</span>
         </button>
         <button class="tab-item" data-tab="record">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
-                <path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
-            </svg>
+            <svg viewBox="0 0 24 24"><path d="M12 4.5v15m7.5-7.5h-15"/></svg>
             <span>تۆمارکردن</span>
         </button>
         <button class="tab-item" data-tab="annual">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
-                <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            <span>ئامارەکان</span>
+            <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            <span>پاڵەوانەکان</span>
         </button>
         <button class="tab-item" data-tab="rankings">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
-                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-            </svg>
-            <span>ڕیزبەندی هەمیشەیی</span>
+            <svg viewBox="0 0 24 24"><path d="M12 3v18M5 10h14M5 15h14"/></svg>
+            <span>ڕێزبەندی گشتی</span>
         </button>
         <button class="tab-item" data-tab="settings">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
-                <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <circle cx="12" cy="12" r="3" />
-            </svg>
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
             <span>ڕێکخستن</span>
         </button>
-    </nav>
-
-    <!-- STANDINGS PAGE -->
-    <main class="page active" id="pageLeaderboard">
-        <header class="page-header">
-            <div>
-                <h1 class="page-title">ڕیزبەندی مانگانە</h1>
-                <div class="month-badge" id="currentMonthBadge"></div>
-            </div>
-        </header>
-        <div class="podium-section" id="podiumSection"></div>
-        <div class="rest-list" id="restList"></div>
-        <button class="action-btn" onclick="handleLogout()" id="btnLogout"
-            style="display:none; margin-top:24px; background:rgba(255,59,48,0.1); border:1px solid rgba(255,59,48,0.2); color:var(--red);">
-            چوونە دەرەوە
-        </button>
-    </main>
-
-    <!-- RECORD PAGE -->
-    <main class="page" id="pageRecord">
-        <header class="page-header" style="display:flex; justify-content:space-between; align-items:center;">
-            <div>
-                <h1 class="page-title">تۆمارکردنی یاری</h1>
-                <p class="page-subtitle">بردنەوە یان دۆڕانی یاریزانەکان دیاری بکە</p>
-            </div>
-            <button class="action-btn reset-btn" id="btnResetToday" onclick="resetToday()"
-                style="width:auto; padding:8px 14px; font-size:12px; height:38px; margin-bottom:0">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-                    <path d="M1 4v6h6M23 20v-6h-6M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15" />
-                </svg>
-                گەڕانەوە بۆ پێشوو
-            </button>
-        </header>
-        <div class="players-grid" id="playersGrid"></div>
-    </main>
-
-    <!-- ANNUAL PAGE -->
-    <main class="page" id="pageAnnual">
-        <header class="page-header">
-            <h1 class="page-title">ئامارەکان</h1>
-        </header>
-        <div class="annual-container">
-            <div id="yearlyChampions"></div>
-            <div id="annualChampions"></div>
-            <div id="yearlyButtonsGrid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 32px;"></div>
-            <div id="monthlyHistory" style="display:none"></div>
-        </div>
-    </main>
-
-    <!-- RANKINGS PAGE -->
-    <main class="page" id="pageRankings">
-        <header class="page-header">
-            <h1 class="page-title">ڕیزبەندی هەمیشەیی</h1>
-            <p class="page-subtitle">ڕیزبەندی گشتی یاریزانان لە هەموو کاتەکاندا</p>
-        </header>
-        <div class="annual-container" id="rankingsListContent">
-            <!-- Filled dynamically -->
-        </div>
-        <div style="margin: 24px 0; padding: 16px; background: var(--surface3); border-radius: 16px; font-size: 11px; line-height: 1.4; color: var(--text2);">
-            <div style="font-weight: 800; margin-bottom: 8px; color: var(--text); text-align: center;">سیستەمی خاڵەکان:</div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; text-align: right;">
-                <span>🥇 یەکەم: 15 خاڵ</span> <span>🥈 دووەم: 10 خاڵ</span> <span>🥉 سێیەم: 8 خاڵ</span>
-                <span>چوارەم: 6 خاڵ</span> <span>پێنجەم: 4 خاڵ</span> <span>شەشەم: 3 خاڵ</span>
-                <span>حەوتەم: 2 خاڵ</span> <span>هەشتەم: 1 خاڵ</span> <span>نۆیەم: 0 خاڵ</span>
-            </div>
-        </div>
-        <p style="color: var(--red); font-weight: 800; font-size: 11px; text-align: center; margin-top: 8px; padding-bottom: 40px; opacity: 0.8;">
-            ئەگەر مانگێک هیچ یاریەیەک نەکەی 0 پۆینت وەرئەگریت
-        </p>
-    </main>
-
-    <!-- YEAR DETAIL OVERLAY -->
-    <main class="page" id="pageYearDetail" style="z-index: 250; background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);">
-        <header class="page-header" style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 24px;">
-            <button class="btn-photo" onclick="closeYearDetail()" style="width: 40px; height: 40px; background: var(--surface2);">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20">
-                    <path d="M15 18l-6-6 6-6" />
-                </svg>
-            </button>
-            <h1 class="page-title" id="yearDetailTitle" style="flex: 1; margin-right: 40px;">Year 2024</h1>
-        </header>
-        <div class="annual-container" id="yearDetailContent"></div>
-    </main>
-
-    <!-- SETTINGS PAGE -->
-    <main class="page" id="pageSettings">
-        <header class="page-header">
-            <h1 class="page-title">ڕێکخستنەکان</h1>
-            <p class="page-subtitle">بەڕێوەبردنی یاریزانان و زانیارییەکان</p>
-        </header>
-        <div class="settings-container">
-            <div class="settings-section">
-                <h2 class="settings-section-title">ناوی یاریزانەکان</h2>
-                <div id="playerNamesList"></div>
-                <button class="action-btn add-player-btn" id="btnAddPlayer">+ زیادکردنی یاریزان</button>
-                <button class="action-btn save-names-btn" id="btnSaveNames">پاشەکەوتکردنی ناوەکان</button>
-            </div>
-
-            <div class="settings-section">
-                <h2 class="settings-section-title">تۆمارە مێژووییەکان</h2>
-                <p class="page-subtitle" style="margin-bottom: 12px; text-align: right;">بەڕێوەبردنی ئەنجامەکانی ڕابردوو بە شێوەی دەستی.</p>
-                <button class="action-btn" onclick="openHistoricalPage()" style="background:var(--surface3); color:var(--text); border:1px solid rgba(0,0,0,0.1); margin-bottom: 8px;">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
-                        <path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
-                    </svg>
-                    زیادکردنی تۆماری مێژوویی
-                </button>
-                <button class="action-btn" onclick="openManageMonthsPage()" style="background:var(--surface3); color:var(--text); border:1px solid rgba(0,0,0,0.1);">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
-                        <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" />
-                        <polyline points="17 21 17 13 7 13 7 21" />
-                        <polyline points="7 3 7 8 15 8" />
-                    </svg>
-                    سڕینەوەی مانگەکان
-                </button>
-            </div>
-            <div class="settings-section">
-                <h2 class="settings-section-title">کێبڕکێ</h2>
-                <button class="action-btn save-names-btn" id="btnEndToday" style="background:var(--surface3); margin-bottom:12px">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
-                        <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    کۆتایی هێنان بە ئەمڕۆ
-                </button>
-                <button class="action-btn new-comp-btn" id="btnNewCompetition">کۆتایی مانگ و دەستپێکی نوێ</button>
-                <button class="action-btn" onclick="generateWinnerImage()" style="background: linear-gradient(135deg, #FFD700, #FFA000); color: #000; font-weight: 800; border: none; margin-bottom: 12px; box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
-                        <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
-                        <circle cx="12" cy="13" r="4" />
-                    </svg>
-                    وێنەی براوەی مانگ
-                </button>
-                <button class="action-btn reset-btn" id="btnResetCurrent">سفرکردنەوەی مانگی ئێستا</button>
-                <button class="action-btn danger-btn" id="btnResetAnnual">سفرکردنەوەی هەموو ئامارەکان</button>
-                <button class="action-btn danger-btn" id="btnResetAll" style="margin-top:24px">سفرکردنەوەی هەموو شتێک</button>
-            </div>
-        </div>
-    </main>
-
-    <!-- HISTORICAL RECORD PAGE -->
-    <main class="page" id="pageHistorical" style="z-index: 150;">
-        <header class="page-header" style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 24px;">
-            <button class="btn-photo" onclick="closeHistoricalPage()" style="width: 40px; height: 40px; background: var(--surface2);">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20">
-                    <path d="M15 18l-6-6 6-6" />
-                </svg>
-            </button>
-            <h1 class="page-title" style="flex: 1; margin-right: 40px;">زیادکردنی تۆمار</h1>
-        </header>
-
-        <div class="settings-container">
-            <div class="historical-form">
-                <div style="display:flex; gap:8px; margin-bottom: 4px;">
-                    <select id="histYear" class="styled-select" style="flex:1" onchange="highlightExistingMonth()"></select>
-                    <select id="histMonth" class="styled-select" style="flex:2" onchange="highlightExistingMonth()">
-                        <option value="0">January</option>
-                        <option value="1">February</option>
-                        <option value="2">March</option>
-                        <option value="3">April</option>
-                        <option value="4">May</option>
-                        <option value="5">June</option>
-                        <option value="6">July</option>
-                        <option value="7">August</option>
-                        <option value="8">September</option>
-                        <option value="9">October</option>
-                        <option value="10">November</option>
-                        <option value="11">December</option>
-                    </select>
-                </div>
-                <div id="histWarning" style="font-size: 11px; color: var(--red); font-weight: 700; margin-bottom: 12px; height: 14px; opacity: 0; transition: opacity 0.2s;">
-                    ⚠️ Record already exists for this date!
-                </div>
-                <div id="historicalRanksContainer" style="display: flex; flex-direction: column; gap: 20px;"></div>
-                <button class="action-btn new-comp-btn" style="margin-top:32px" onclick="addHistoricalRecord()">Save Record</button>
-            </div>
-        </div>
-    </main>
-
-    <!-- MANAGE MONTHS PAGE -->
-    <main class="page" id="pageManageMonths" style="z-index: 150;">
-        <header class="page-header" style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 24px;">
-            <button class="btn-photo" onclick="closeManageMonthsPage()" style="width: 40px; height: 40px; background: var(--surface2);">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20">
-                    <path d="M15 18l-6-6 6-6" />
-                </svg>
-            </button>
-            <h1 class="page-title" style="flex: 1; margin-right: 40px;">بەڕێوەبردنی تۆمارەکان</h1>
-        </header>
-        <div class="settings-container">
-            <div id="monthsManagementList" style="display: flex; flex-direction: column; gap: 12px;"></div>
-        </div>
-    </main>
-
-    <!-- PLAYER STATS MODAL -->
-    <div class="modal-overlay" id="playerStatsOverlay" style="z-index: 300;">
-        <div class="modal" style="max-width: 90%; width: 340px;">
-            <div id="playerStatsContent"></div>
-            <button class="action-btn" onclick="document.getElementById('playerStatsOverlay').classList.remove('active')" style="margin-top: 20px; background: var(--surface3);">Close</button>
-        </div>
     </div>
 
-    <!-- MODAL -->
+    <!-- GENERAL GLOBAL TELEMETRY INTERACTION DIALOG SYSTEM MESSAGING COMPONENT MODAL -->
     <div class="modal-overlay" id="modalOverlay">
-        <div class="modal">
-            <h3 class="modal-title" id="modalTitle"></h3>
-            <p class="modal-message" id="modalMessage"></p>
+        <div class="modal-card">
+            <h3 class="modal-title" id="modalTitle">Title</h3>
+            <p class="modal-msg" id="modalMessage">Message content text goes right here.</p>
             <div class="modal-actions" id="modalActions"></div>
         </div>
     </div>
 
-    <!-- TOAST -->
-    <div class="toast" id="toast"><span id="toastText"></span></div>
+    <!-- FLOATING TOAST POPUPS NOTIFICATION HUD LAYOUT SHELL ENGINE -->
+    <div class="toast" id="toast">
+        <span id="toastText">Notification text alert!</span>
+    </div>
 
-    <!-- HIDDEN PHOTO INPUT -->
-    <input type="file" id="playerPhotoInput" accept="image/*" style="display:none">
-
-    <!-- WINNER SHARE CARD (HIDDEN) -->
-    <div id="winnerShareContainer" style="position: absolute; left: -9999px; top: -9999px; width: 400px; padding: 40px 30px; background: #0d1127; color: white; font-family: 'Vazirmatn', sans-serif; text-align: center; overflow: hidden;">
-        <div id="winnerFireworks" style="position:absolute; inset:0; pointer-events:none; opacity: 0.5;"></div>
-        <div style="position:relative; z-index: 2;">
-            <h2 style="font-size: 42px; font-weight: 900; color: #FFD700; margin-bottom: 10px; text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);">براوەی مانگ</h2>
-            <div id="winnerMonthLabel" style="font-size: 20px; opacity: 0.8; margin-bottom: 40px; font-weight: 700;"></div>
-            <div id="winnerPodium" style="display: flex; align-items: flex-end; justify-content: center; gap: 15px; margin-bottom: 40px;"></div>
-            <div id="winnerRestList" style="display: flex; flex-direction: column; gap: 10px; text-align: right;"></div>
-            <div style="margin-top: 50px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px; opacity: 0.5; font-size: 12px;">
-                Competition Tracker • Dream Caffe
+    <!-- OVERLAY PAGE SUB MODAL PANEL: SUBMIT PREVIOUS HISTORICAL DATABASE RECORDS -->
+    <div class="sub-page-overlay" id="pageHistorical">
+        <div class="sub-header">
+            <h2 class="sub-title">زیادکردنی تۆماری مانگەکانی پێشوو</h2>
+            <button class="btn-close-sub" onclick="closeHistoricalPage()">✕</button>
+        </div>
+        
+        <div style="background:var(--surface); padding:16px; border-radius:var(--radius-sm); border:1px solid var(--glass-border); margin-bottom:12px; display:flex; gap:10px;">
+            <div style="flex:1">
+                <label style="font-size:11px; font-weight:700; color:var(--text3); display:block; margin-bottom:4px;">مانگ</label>
+                <select id="histMonth" onchange="highlightExistingMonth()" style="width:100%; padding:10px; border-radius:10px; border:1px solid rgba(0,0,0,0.1); font-weight:700;">
+                    <option value="0">مانگی 1</option><option value="1">مانگی 2</option><option value="2">مانگی 3</option><option value="3">مانگی 4</option>
+                    <option value="4">مانگی 5</option><option value="5">مانگی 6</option><option value="6">مانگی 7</option><option value="7">مانگی 8</option>
+                    <option value="8">مانگی 9</option><option value="9">مانگی 10</option><option value="10">مانگی 11</option><option value="11">مانگی 12</option>
+                </select>
+            </div>
+            <div style="flex:1">
+                <label style="font-size:11px; font-weight:700; color:var(--text3); display:block; margin-bottom:4px;">ساڵ</label>
+                <select id="histYear" onchange="highlightExistingMonth()" style="width:100%; padding:10px; border-radius:10px; border:1px solid rgba(0,0,0,0.1); font-weight:700;"></select>
             </div>
         </div>
+        
+        <div id="histWarning" style="display:none; background:rgba(255,59,48,0.08); border:1px solid rgba(255,59,48,0.2); color:var(--red); font-size:12px; font-weight:700; padding:10px; border-radius:12px; margin-bottom:12px; text-align:center; transition:opacity 0.2s;">
+            ⚠️ ئاگاداری: تۆمارێک بۆ ئەم مانگە هەیە! پاشەکەوتکردن داتای کۆن دەسڕێتەوە.
+        </div>
+
+        <div id="historicalRanksContainer"></div>
+        
+        <button class="action-btn" onclick="addHistoricalRecord()" style="margin-top:16px; margin-bottom: 0;">💾 پاشەکەوتکردنی تۆماری مێژوویی</button>
     </div>
 
-    <!-- SHARE OVERLAY -->
-    <div id="shareOverlay" class="modal-overlay" style="z-index: 1000; background: rgba(0,0,0,0.9);">
-        <div style="display: flex; flex-direction: column; align-items: center; gap: 20px; width: 90%; max-width: 400px;">
-            <div id="sharePreview" style="width: 100%; border-radius: 20px; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.5);"></div>
-            <p style="color: white; font-size: 14px; text-align: center; opacity: 0.8;">دەست دابگرە لەسەر وێنەکە بۆ پاشەکەوتکردن</p>
-            <button class="action-btn" onclick="document.getElementById('shareOverlay').classList.remove('active')" style="background: var(--surface2); color: white; border: 1px solid rgba(255,255,255,0.1);">داخستن</button>
+    <!-- OVERLAY PAGE SUB MODAL PANEL: MANAGE COMPLETED RECORD ENTRIES -->
+    <div class="sub-page-overlay" id="pageManageMonths">
+        <div class="sub-header">
+            <h2 class="sub-title">بەڕێوەبردنی تۆماری مانگەکان</h2>
+            <button class="btn-close-sub" onclick="closeManageMonthsPage()">✕</button>
+        </div>
+        <div id="monthsManagementList"></div>
+    </div>
+
+    <!-- OVERLAY PAGE SUB MODAL PANEL: YEAR DETAIL RECORDS VISUALIZER -->
+    <div class="sub-page-overlay" id="pageYearDetail" style="z-index: 160;">
+        <div class="sub-header">
+            <h2 class="sub-title" id="yearDetailTitle">ساڵ</h2>
+            <button class="btn-close-sub" onclick="closeYearDetail()">✕</button>
+        </div>
+        <div id="yearDetailContent"></div>
+    </div>
+
+    <!-- MODAL POPUP SUB OVERLAY PANEL VIEW: SPECIFIC INDIVIDUAL PLAYER SCORE CARD DETAILS PROFILE ENGINE -->
+    <div class="modal-overlay" id="playerStatsOverlay" onclick="if(event.target===this)this.classList.remove('active')">
+        <div class="modal-card" style="max-width:440px; text-align:initial;">
+            <div id="playerStatsContent"></div>
+            <button class="action-btn secondary" onclick="document.getElementById('playerStatsOverlay').classList.remove('active')" style="margin-top:20px; margin-bottom:0; width:100%;">داخستن</button>
         </div>
     </div>
 
-    <!-- Firebase Compat SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+    <!-- CANVAS WRAPPER INTERFACE HOOK FOR GENERATING SHAREABLE LEADERBOARD GRAPHIC IMAGES -->
+    <div class="modal-overlay" id="shareOverlay" onclick="if(event.target===this)this.classList.remove('active')">
+        <div class="modal-card" style="max-width:460px; padding:16px;">
+            <h3 class="modal-title" style="margin-bottom:12px;">کارتی کۆتایی مانگ</h3>
+            <div id="sharePreview" style="border-radius:12px; overflow:hidden; box-shadow:0 8px 24px rgba(0,0,0,0.1); background:#0d1127;"></div>
+            <p style="font-size:11px; color:var(--text3); margin-top:10px; text-align:center;">دەتوانیت پەنجە بنێیت بە وێنەکەدا بۆ پاشەکەوتکردن یان هاوبەشیکردن</p>
+            <button class="action-btn" onclick="document.getElementById('shareOverlay').classList.remove('active')" style="margin-top:16px; margin-bottom:0;">داخستن</button>
+        </div>
+    </div>
 
-    <script>
-        const firebaseConfig = {
-            apiKey: "AIzaSyBehg4bhUNXM0OZfS3_ilnCW1Dh6uRrVdc",
-            authDomain: "dream-league-okey.firebaseapp.com",
-            databaseURL: "https://dream-league-okey-default-rtdb.europe-west1.firebasedatabase.app",
-            projectId: "dream-league-okey",
-            storageBucket: "dream-league-okey.firebasestorage.app",
-            messagingSenderId: "1027675826945",
-            appId: "1:1027675826945:web:d118aa3aa77357035f0900",
-            measurementId: "G-JY3QCZPNHR"
-        };
-        firebase.initializeApp(firebaseConfig);
+    <!-- ENGINE CAPTURE CONTAINER SHELL FOR GENERATING SHAREABLE CANVAS GRAPHICS -->
+    <div style="position:absolute; left:-9999px; top:-9999px;">
+        <div id="winnerShareContainer" style="width:540px; padding:40px; background:linear-gradient(135deg, #0d1127 0%, #161f44 100%); color:#fff; font-family:-apple-system,BlinkMacSystemFont,sans-serif; position:relative; overflow:hidden; direction:rtl; text-align:right;">
+            <div id="winnerFireworks" style="position:absolute; top:0; left:0; right:0; bottom:0; pointer-events:none; opacity:0.4;"></div>
+            <div style="text-align:center; margin-bottom:35px; position:relative; z-index:2;">
+                <div style="font-size:52px; margin-bottom:5px; filter:drop-shadow(0 4px 10px rgba(255,215,0,0.4));">🏆</div>
+                <h2 style="font-size:32px; font-weight:900; background:linear-gradient(135deg, #fff 60%, #ff9500); -webkit-background-clip:text; -webkit-text-fill-color:transparent; letter-spacing:-0.5px;">کۆتایی خولی ناوخۆیی</h2>
+                <div id="winnerMonthLabel" style="font-size:16px; color:#ff9500; font-weight:800; margin-top:4px; letter-spacing:1px; background:rgba(255,149,0,0.1); padding:4px 16px; border-radius:20px; display:inline-block;">مانگ</div>
+            </div>
+            <div id="winnerPodium" style="display:flex; justify-content:center; align-items:flex-end; gap:20px; margin-bottom:45px; position:relative; z-index:2; min-height:210px; border-bottom:2px solid rgba(255,255,255,0.1); padding-bottom:25px;"></div>
+            <div id="winnerRestList" style="display:flex; flex-direction:column; gap:8px; position:relative; z-index:2; max-width:440px; margin:0 auto;"></div>
+            <div style="text-align:center; margin-top:40px; font-size:12px; color:rgba(255,255,255,0.3); font-weight:600; letter-spacing:0.5px; position:relative; z-index:2;">دروستکراوە لە ڕێگەی سیستمی فەرمی خولی ناوخۆیی</div>
+        </div>
+    </div>
 
-        // LIVE BRIDGE: Force listeners to update the UI globally across viewers immediately when values adjust.
-        function startLiveSync() {
-            const dbRef = firebase.database().ref();
-
-            // Listen directly to current competition modifications
-            dbRef.child('competitions/currentMonth').on('value', (snapshot) => {
-                const liveData = snapshot.val();
-                if (liveData) {
-                    console.log("Real-time match data received:", liveData);
-                    
-                    // Safely link straight to your existing rendering loops inside app.js
-                    if (typeof renderLeaderboard === 'function') {
-                        // Clear structural containers to safeguard against duplication drops
-                        const pod = document.getElementById('podiumSection');
-                        const rList = document.getElementById('restList');
-                        if (pod) pod.innerHTML = '';
-                        if (rList) rList.innerHTML = '';
-                        
-                        renderLeaderboard(liveData);
-                    }
-                    if (typeof updateScoresPage === 'function') {
-                        updateScoresPage(liveData);
-                    }
-                }
-            });
-
-            // Listen directly to rankings configurations
-            dbRef.child('rankings').on('value', (snapshot) => {
-                const liveRankings = snapshot.val();
-                if (liveRankings && typeof renderRankings === 'function') {
-                    const rContent = document.getElementById('rankingsListContent');
-                    if (rContent) rContent.innerHTML = '';
-                    
-                    renderRankings(liveRankings);
-                }
-            });
-        }
-
-        // Initialize listener interface safely when DOM processing executes
-        document.addEventListener('DOMContentLoaded', () => {
-            startLiveSync();
-        });
-    </script>
-
+    <!-- CORE ENGINE EXECUTION CONTROLLER APPLICATION INTERACTIVITY IMPLEMENTATION LOGIC LINK HOOK -->
     <script src="app.js"></script>
+
 </body>
 </html>
