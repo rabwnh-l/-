@@ -71,162 +71,30 @@ function normalizeData(d) {
     return d;
 }
 
-// --- Firebase save system (mobile-safe) ---
-let _isSaving = false;
-let _saveTimer = null;
-let _savingTimeout = null;
-
-// Build a lightweight copy for Firebase WITHOUT touching photo data at all.
-// This avoids JSON.parse(JSON.stringify()) of huge Base64 strings.
-function buildFirebasePayload(d) {
-    try {
-        var payload = {
-            currentMonth: d.currentMonth,
-            currentYear: d.currentYear,
-            viewYear: d.viewYear,
-            yesterdayRanks: d.yesterdayRanks || {},
-            annualStats: d.annualStats || {}
-        };
-        // Players: copy each field except photo
-        if (d.players) {
-            var arr = Array.isArray(d.players) ? d.players : Object.values(d.players);
-            payload.players = arr.map(function(p) {
-                return { id: p.id, name: p.name, points: p.points, wins: p.wins, losses: p.losses, gamesPlayed: p.gamesPlayed, isHidden: p.isHidden || false };
-            });
-        } else {
-            payload.players = [];
-        }
-        // yesterdayState: copy without photos
-        if (d.yesterdayState) {
-            var ys = Array.isArray(d.yesterdayState) ? d.yesterdayState : Object.values(d.yesterdayState);
-            payload.yesterdayState = ys.map(function(p) {
-                return { id: p.id, name: p.name, points: p.points, wins: p.wins, losses: p.losses, gamesPlayed: p.gamesPlayed, isHidden: p.isHidden || false };
-            });
-        } else {
-            payload.yesterdayState = null;
-        }
-        // monthlyResults: copy without player photos
-        if (d.monthlyResults) {
-            var mr = Array.isArray(d.monthlyResults) ? d.monthlyResults : Object.values(d.monthlyResults);
-            payload.monthlyResults = mr.map(function(r) {
-                var copy = {
-                    month: r.month, year: r.year,
-                    winners: r.winners || [], second: r.second || [], third: r.third || [],
-                    fourth: r.fourth || [], fifth: r.fifth || [], sixth: r.sixth || [],
-                    seventh: r.seventh || [], eighth: r.eighth || [], ninth: r.ninth || []
-                };
-                if (r.players) {
-                    var pl = Array.isArray(r.players) ? r.players : Object.values(r.players);
-                    copy.players = pl.map(function(p) {
-                        return { name: p.name, points: p.points, wins: p.wins, losses: p.losses };
-                    });
-                }
-                return copy;
-            });
-        } else {
-            payload.monthlyResults = [];
-        }
-        return payload;
-    } catch(err) {
-        console.error("buildFirebasePayload error:", err);
-        return null;
-    }
-}
-
-function _pushToFirebase(retryNum) {
-    if (!dbRef || sessionStorage.getItem('userRole') !== 'admin') return;
-    retryNum = retryNum || 0;
-    
-    var payload = buildFirebasePayload(data);
-    if (!payload) return;
-    
-    _isSaving = true;
-    // Safety timeout: never leave _isSaving stuck for more than 10 seconds
-    clearTimeout(_savingTimeout);
-    _savingTimeout = setTimeout(function() { _isSaving = false; }, 10000);
-    
-    dbRef.set(payload).then(function() {
-        console.log("Saved to Firebase OK");
-        _isSaving = false;
-        clearTimeout(_savingTimeout);
-    }).catch(function(e) {
-        console.error("Firebase save error:", e);
-        _isSaving = false;
-        clearTimeout(_savingTimeout);
-        if (retryNum < 2) {
-            setTimeout(function() { _pushToFirebase(retryNum + 1); }, 1500);
-        } else {
-            showToast("⚠️ پاشەکەوت نەکرا. ئینتەرنێت بپشکنە.");
-        }
-    });
-}
-
 function saveData() { 
-    try {
-        localStorage.setItem('competitionData', JSON.stringify(data)); 
-    } catch(e) {
-        console.error("localStorage save error:", e);
-    }
+    localStorage.setItem('competitionData', JSON.stringify(data)); 
+    // Only Admin can save to Firebase
     if (dbRef && sessionStorage.getItem('userRole') === 'admin') {
-        clearTimeout(_saveTimer);
-        _saveTimer = setTimeout(function() { _pushToFirebase(0); }, 500);
+        dbRef.set(data).then(() => {
+            console.log("Saved to Firebase");
+        }).catch(e => {
+            console.error("Firebase Save Error:", e);
+            showToast("⚠️ نەتوانرا لە سێرڤەر پاشەکەوت بکرێت. (پەیوەندی یان ڕێگەپێدان)");
+        });
     }
 }
 
-var data = normalizeData(loadData());
-
-// One-time cleanup: remove old photos stored in Firebase from before this fix
-function cleanFirebasePhotos() {
-    if (!dbRef) return;
-    dbRef.once('value').then(function(snap) {
-        var d = snap.val();
-        if (!d || !d.players) return;
-        var players = Array.isArray(d.players) ? d.players : Object.values(d.players);
-        var hasPhotos = players.some(function(p) { return p.photo && typeof p.photo === 'string' && p.photo.length > 100; });
-        if (hasPhotos) {
-            console.log("Cleaning old photos from Firebase...");
-            var cleanPayload = buildFirebasePayload(d);
-            if (cleanPayload) {
-                dbRef.set(cleanPayload).then(function() {
-                    console.log("Firebase photos cleaned.");
-                }).catch(function(e) {
-                    console.error("Photo cleanup failed:", e);
-                });
-            }
-        }
-    }).catch(function(e) { console.error("Cleanup check failed:", e); });
-}
+let data = normalizeData(loadData());
 
 // Listener for real-time updates
 if (dbRef) {
-    dbRef.on('value', function(snapshot) {
-        if (_isSaving) return; // Don't overwrite while saving
-        
-        var remoteData = snapshot.val();
-        if (!remoteData) return;
-        
-        // Restore photos from local data (Firebase won't have them)
-        try {
-            if (remoteData.players && data && data.players) {
-                var localPlayers = Array.isArray(data.players) ? data.players : Object.values(data.players);
-                var photoMap = {};
-                localPlayers.forEach(function(p) { if (p.photo) photoMap[p.id] = p.photo; });
-                
-                var remotePlayers = Array.isArray(remoteData.players) ? remoteData.players : Object.values(remoteData.players);
-                remotePlayers.forEach(function(p) {
-                    if (!p.photo && photoMap[p.id]) p.photo = photoMap[p.id];
-                });
-                remoteData.players = remotePlayers;
-            }
-        } catch(e) { console.error("Photo merge error:", e); }
-        
-        data = normalizeData(remoteData);
-        try { localStorage.setItem('competitionData', JSON.stringify(data)); } catch(e) {}
-        renderCurrentPage();
+    dbRef.on('value', (snapshot) => {
+        const remoteData = snapshot.val();
+        if (remoteData) {
+            data = normalizeData(remoteData);
+            renderCurrentPage();
+        }
     });
-    
-    // Run one-time photo cleanup when admin logs in
-    cleanFirebasePhotos();
 }
 
 function renderCurrentPage() {
