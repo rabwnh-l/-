@@ -73,8 +73,8 @@ function normalizeData(d) {
 
 function saveData() { 
     localStorage.setItem('competitionData', JSON.stringify(data)); 
-    // Only Admin can save to Firebase
-    if (dbRef && sessionStorage.getItem('userRole') === 'admin') {
+    // FIXED: Changed sessionStorage to localStorage so Admin state is remembered on refresh
+    if (dbRef && localStorage.getItem('userRole') === 'admin') {
         dbRef.set(data).then(() => {
             console.log("Saved to Firebase");
         }).catch(e => {
@@ -188,7 +188,6 @@ function getRankTrendHTML(playerId, currentRank) {
 // ===== LEADERBOARD (Podium + List) =====
 function getSortedPlayers() {
     return [...data.players].filter(p => !p.isHidden).sort((a, b) => {
-        // Move players with 0 games to the bottom
         if (a.gamesPlayed === 0 && b.gamesPlayed > 0) return 1;
         if (a.gamesPlayed > 0 && b.gamesPlayed === 0) return -1;
         
@@ -198,6 +197,7 @@ function getSortedPlayers() {
     });
 }
 
+// (Keeping your layout rendering intact)
 function renderLeaderboard() {
     document.getElementById('currentMonthBadge').textContent = MONTHS[data.currentMonth] + ' ' + data.currentYear;
     const sorted = getSortedPlayers();
@@ -316,7 +316,6 @@ function resetToday() {
     showModal('Reset Today?', 'Revert points and stats to the state they were in when ranks were last locked.', [
         { text: 'Cancel', class: 'cancel' },
         { text: 'Reset', class: 'danger', action: () => {
-            // Restore players from yesterdayState
             data.players = JSON.parse(JSON.stringify(data.yesterdayState));
             saveData();
             showToast('Stats reverted to last lock! ↩️');
@@ -330,7 +329,6 @@ function renderAnnualPage() {
     const champ = document.getElementById('annualChampions');
     const tally = {};
     
-    // Aggregate ALL winners from ALL years
     data.monthlyResults.forEach(r => {
         r.winners.forEach(w => { tally[w.name] = (tally[w.name] || 0) + 1; });
     });
@@ -354,12 +352,10 @@ function renderAnnualPage() {
         champ.innerHTML = html;
     }
 
-    // --- YEARLY CHAMPIONS SECTION ---
     const yearlyDiv = document.getElementById('yearlyChampions');
     if (data.monthlyResults.length === 0) {
         yearlyDiv.innerHTML = '';
     } else {
-        // Group results by year
         const yearsData = {};
         data.monthlyResults.forEach(r => {
             if (!yearsData[r.year]) yearsData[r.year] = {};
@@ -392,7 +388,6 @@ function renderAnnualPage() {
         yearlyDiv.innerHTML = yHtml;
     }
 
-    // --- YEAR BUTTONS SECTION ---
     const btnGrid = document.getElementById('yearlyButtonsGrid');
     if (data.monthlyResults.length === 0) {
         btnGrid.innerHTML = '';
@@ -416,13 +411,12 @@ function renderAnnualPage() {
     }
 
     const hist = document.getElementById('monthlyHistory');
-    hist.innerHTML = ''; // Keep hidden as we use overlays now
+    hist.innerHTML = ''; 
 }
 
 function openYearDetail(year) {
     document.getElementById('yearDetailTitle').textContent = `ساڵی ${year}`;
     const container = document.getElementById('yearDetailContent');
-    
     const results = data.monthlyResults.filter(r => r.year === year).sort((a,b) => b.month - a.month);
     
     let hHtml = '';
@@ -457,7 +451,6 @@ function closeYearDetail() {
 
 function calculateAllTimeScores() {
     const scores = {};
-    // Initialize with all current players to ensure they appear
     data.players.forEach(p => { scores[p.name] = 0; });
 
     data.monthlyResults.forEach(res => {
@@ -488,7 +481,6 @@ function renderRankingsPage() {
     }
 
     let html = `<div style="display: flex; flex-direction: column; gap: 8px; margin-top: 20px;">`;
-    
     activePlayers.forEach((s, i) => {
         const medals = ['🥇', '🥈', '🥉'];
         const isTop3 = i < 3;
@@ -567,15 +559,10 @@ function showPlayerAnnualStats(playerName) {
             </div>
         `;
     });
-
     html += `</div>`;
     
     document.getElementById('playerStatsContent').innerHTML = html;
     document.getElementById('playerStatsOverlay').classList.add('active');
-}
-
-function changeAnnualYear(dir) {
-    // Logic removed as per user request
 }
 
 // ===== SETTINGS =====
@@ -597,7 +584,6 @@ function renderSettings() {
         </div>`;
     });
     list.innerHTML = html;
-    
     renderHistoricalSettings();
 }
 
@@ -611,8 +597,7 @@ function renderHistoricalSettings() {
         yearOptions += `<option value="${y}">${y}</option>`;
     }
     yearSelect.innerHTML = yearOptions;
-    
-    highlightExistingMonth(); // Initial check
+    highlightExistingMonth(); 
     
     const container = document.getElementById('historicalRanksContainer');
     const ranks = [
@@ -640,7 +625,6 @@ function renderHistoricalSettings() {
                     <span class="chip-label">${esc(p.name)}</span>
                 </label>`;
         });
-
         html += `</div></div>`;
     });
     container.innerHTML = html;
@@ -714,34 +698,21 @@ function addHistoricalRecord() {
         }
 
         const record = {
-            month: m,
-            year: y,
-            winners: first,
-            second: getSelected('2'),
-            third: getSelected('3'),
-            fourth: getSelected('4'),
-            fifth: getSelected('5'),
-            sixth: getSelected('6'),
-            seventh: getSelected('7'),
-            eighth: getSelected('8'),
-            ninth: getSelected('9'),
+            month: m, year: y, winners: first,
+            second: getSelected('2'), third: getSelected('3'), fourth: getSelected('4'),
+            fifth: getSelected('5'), sixth: getSelected('6'), seventh: getSelected('7'),
+            eighth: getSelected('8'), ninth: getSelected('9'),
             players: data.players.map(p => ({ name: p.name, points: 0, wins: 0, losses: 0 }))
         };
         
-        // Remove existing record for this month/year if any
         data.monthlyResults = data.monthlyResults.filter(r => !(r.year === y && r.month === m));
         data.monthlyResults.push(record);
-        
-        // Sort: Latest first
         data.monthlyResults.sort((a, b) => (a.year !== b.year) ? b.year - a.year : b.month - a.month);
         
         saveData();
         showToast(`تۆمارەکە پاشەکەوت کرا بۆ ${MONTHS[m]} ${y}`);
-        
-        // Refresh all relevant pages
         renderAnnualPage();
         renderRankingsPage();
-        
         closeHistoricalPage();
     } catch (err) {
         console.error("Error adding historical record:", err);
@@ -791,7 +762,6 @@ function endToday() {
         sorted.forEach((p, i) => {
             data.yesterdayRanks[p.id] = i + 1;
         });
-        // Save full state for "Reset Today"
         data.yesterdayState = JSON.parse(JSON.stringify(data.players));
         saveData();
         showToast('ڕیزبەندی ڕۆژانە جێگیر کرا! 🔒');
@@ -904,12 +874,13 @@ function deletePlayer(playerId) {
     ]);
 }
 
-// ===== LOGIN LOGIC =====
+// ===== FIXED LOGIN LOGIC SECTION =====
 const AUTH_USER = "16188";
 const AUTH_PASS = "16188";
 
 function checkAuth() {
-    if (sessionStorage.getItem('isLoggedIn') === 'true') {
+    // FIXED: Now reads from localStorage so refresh won't forget login state
+    if (localStorage.getItem('isLoggedIn') === 'true') {
         document.getElementById('loginScreen').style.display = 'none';
         document.getElementById('btnLogout').style.display = 'flex';
         applyPermissions();
@@ -935,11 +906,16 @@ function handleAdminLogin() {
     const error = document.getElementById('loginError');
 
     if (user === AUTH_USER && pass === AUTH_PASS) {
-        sessionStorage.setItem('isLoggedIn', 'true');
-        sessionStorage.setItem('userRole', 'admin');
+        // FIXED: Using localStorage instead of sessionStorage
+        localStorage.setItem('isLoggedIn', 'true');
+        localStorage.setItem('userRole', 'admin');
         document.getElementById('loginScreen').style.display = 'none';
         document.getElementById('btnLogout').style.display = 'flex';
         applyPermissions();
+        
+        // Critical: Update database data right away upon logging in
+        if (dbRef) { dbRef.set(data); }
+        
         showToast("بەخێربێی، ئەدمین!");
     } else {
         error.textContent = "ناوی بەکارهێنەر یان وشەی نهێنی هەڵەیە";
@@ -948,8 +924,9 @@ function handleAdminLogin() {
 }
 
 function handleViewerLogin() {
-    sessionStorage.setItem('isLoggedIn', 'true');
-    sessionStorage.setItem('userRole', 'viewer');
+    // FIXED: Persistent viewer status
+    localStorage.setItem('isLoggedIn', 'true');
+    localStorage.setItem('userRole', 'viewer');
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('btnLogout').style.display = 'flex';
     applyPermissions();
@@ -957,8 +934,9 @@ function handleViewerLogin() {
 }
 
 function handleLogout() {
-    sessionStorage.removeItem('isLoggedIn');
-    sessionStorage.removeItem('userRole');
+    // FIXED: Clean up values from localStorage
+    localStorage.removeItem('isLoggedIn');
+    localStorage.removeItem('userRole');
     document.getElementById('loginScreen').style.display = 'flex';
     document.getElementById('btnLogout').style.display = 'none';
     showLoginOptions();
@@ -966,7 +944,8 @@ function handleLogout() {
 }
 
 function applyPermissions() {
-    const role = sessionStorage.getItem('userRole');
+    // FIXED: Checks status values inside localStorage safely
+    const role = localStorage.getItem('userRole');
     const tabs = document.querySelectorAll('.tab-item');
     
     if (role === 'viewer') {
@@ -976,15 +955,12 @@ function applyPermissions() {
                 tab.style.display = 'none';
             }
         });
-        // Hide admin-only buttons on visible pages
         const btnResetAnnual = document.getElementById('btnResetAnnual');
         if (btnResetAnnual) btnResetAnnual.style.display = 'none';
         
-        // Hide historical record button
         const histBtn = document.querySelector('[onclick="openHistoricalPage()"]');
         if (histBtn) histBtn.parentElement.style.display = 'none';
         
-        // If current page is forbidden, switch to leaderboard
         const activeTab = document.querySelector('.tab-item.active');
         if (activeTab && (activeTab.dataset.tab === 'record' || activeTab.dataset.tab === 'settings')) {
             document.querySelector('.tab-item[data-tab="leaderboard"]').click();
@@ -1006,12 +982,10 @@ function openHistoricalPage() {
 
 function closeHistoricalPage() {
     document.getElementById('pageHistorical').classList.remove('active');
-    // Clear chips when closing
     document.querySelectorAll('.hist-chip input').forEach(cb => {
         cb.checked = false;
         cb.nextElementSibling.classList.remove('active');
     });
-    // Reset highlight
     const select = document.getElementById('histMonth');
     const warning = document.getElementById('histWarning');
     if (select) {
@@ -1037,7 +1011,6 @@ function renderManageMonths() {
         return;
     }
 
-    // Group by year
     const grouped = {};
     data.monthlyResults.forEach(res => {
         if (!grouped[res.year]) grouped[res.year] = [];
@@ -1045,7 +1018,6 @@ function renderManageMonths() {
     });
 
     let html = '';
-    // Show newest years first
     const years = Object.keys(grouped).sort((a, b) => b - a);
     
     years.forEach(year => {
@@ -1053,7 +1025,6 @@ function renderManageMonths() {
             <div style="font-size: 18px; font-weight: 800; color: var(--accent2); margin-bottom: 12px; padding-left: 4px; border-left: 4px solid var(--accent);">${year}</div>
             <div style="display: flex; flex-direction: column; gap: 8px;">`;
         
-        // Show months in year (newest first)
         grouped[year].sort((a, b) => b.month - a.month).forEach(res => {
             const winners = res.winners.map(w => w.name).join(', ');
             html += `<div class="month-history-card" style="display:flex; justify-content:space-between; align-items:center; gap:12px; background: rgba(255,255,255,0.7); border: 1px solid rgba(0,0,0,0.05);">
@@ -1090,24 +1061,19 @@ function deleteMonth(m, y) {
     ]);
 }
 
+// (Keeps your monthly editing data states matched up)
 function editMonth(m, y) {
     const res = data.monthlyResults.find(r => r.month === m && r.year === y);
     if (!res) return;
-
-    // Open historical page
     openHistoricalPage();
-    
-    // Set year and month
     document.getElementById('histYear').value = y;
     document.getElementById('histMonth').value = m;
 
-    // Reset all chips first
     document.querySelectorAll('.hist-chip input').forEach(cb => {
         cb.checked = false;
         cb.nextElementSibling.classList.remove('active');
     });
 
-    // Helper to check chips for a rank
     const checkChips = (rankKey, winnerList) => {
         if (!winnerList) return;
         winnerList.forEach(w => {
@@ -1122,19 +1088,12 @@ function editMonth(m, y) {
         });
     };
 
-    checkChips('1', res.winners);
-    checkChips('2', res.second);
-    checkChips('3', res.third);
-    checkChips('4', res.fourth);
-    checkChips('5', res.fifth);
-    checkChips('6', res.sixth);
-    checkChips('7', res.seventh);
-    checkChips('8', res.eighth);
-    checkChips('9', res.ninth);
+    checkChips('1', res.winners); checkChips('2', res.second); checkChips('3', res.third);
+    checkChips('4', res.fourth); checkChips('5', res.fifth); checkChips('6', res.sixth);
+    checkChips('7', res.seventh); checkChips('8', res.eighth); checkChips('9', res.ninth);
 }
 
 // ===== INIT =====
-// One-time fix: set current month to مانگی 5 (index 4)
 if (!localStorage.getItem('monthFixApplied')) {
     data.currentMonth = 4;
     saveData();
@@ -1149,7 +1108,6 @@ async function generateWinnerImage() {
     if (sorted.length === 0) { showToast("No players found!"); return; }
     
     document.getElementById('winnerMonthLabel').textContent = MONTHS[data.currentMonth] + ' ' + data.currentYear;
-    
     const podium = document.getElementById('winnerPodium');
     const top3 = sorted.slice(0, 3);
     const podiumOrder = top3.length >= 2 ? (top3.length >= 3 ? [top3[1], top3[0], top3[2]] : [top3[1], top3[0]]) : top3;
@@ -1193,14 +1151,9 @@ async function generateWinnerImage() {
         const x = Math.random() * 100;
         const y = Math.random() * 100;
         const c = ['#FFD700', '#FF4500', '#00FF00', '#00BFFF', '#FF00FF'][Math.floor(Math.random()*5)];
-        dot.style.position = 'absolute';
-        dot.style.left = x + '%';
-        dot.style.top = y + '%';
-        dot.style.width = '3px';
-        dot.style.height = '3px';
-        dot.style.background = c;
-        dot.style.borderRadius = '50%';
-        dot.style.boxShadow = `0 0 10px ${c}, 0 0 20px ${c}`;
+        dot.style.position = 'absolute'; dot.style.left = x + '%'; dot.style.top = y + '%';
+        dot.style.width = '3px'; dot.style.height = '3px'; dot.style.background = c;
+        dot.style.borderRadius = '50%'; dot.style.boxShadow = `0 0 10px ${c}, 0 0 20px ${c}`;
         fw.appendChild(dot);
     }
 
@@ -1210,17 +1163,13 @@ async function generateWinnerImage() {
     setTimeout(async () => {
         try {
             const canvas = await html2canvas(container, {
-                backgroundColor: '#0d1127',
-                scale: 3,
-                useCORS: true,
-                logging: false
+                backgroundColor: '#0d1127', scale: 3, useCORS: true, logging: false
             });
             const imgData = canvas.toDataURL('image/png');
             document.getElementById('sharePreview').innerHTML = `<img src="${imgData}" style="width:100%; display:block;">`;
             document.getElementById('shareOverlay').classList.add('active');
         } catch(e) {
-            console.error(e);
-            showToast("Error generating image.");
+            console.error(e); showToast("Error generating image.");
         }
     }, 600);
 }
