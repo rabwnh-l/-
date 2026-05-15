@@ -94,8 +94,12 @@ function saveData(immediate = false) {
 }
 
 function performFirebaseSave() {
-    if (dbRef && sessionStorage.getItem('userRole') === 'admin') {
-        dbRef.set(data).catch(e => console.error("Sync Error:", e));
+    const isReady = dbRef && (sessionStorage.getItem('userRole') === 'admin' || sessionStorage.getItem('isLoggedIn') === 'true');
+    if (isReady) {
+        dbRef.set(data).catch(e => {
+            console.error("Sync Error:", e);
+            // Don't show toast for every background sync error to avoid annoying the user
+        });
     }
 }
 
@@ -846,16 +850,16 @@ function addHistoricalRecord() {
         // Sort: Latest first
         data.monthlyResults.sort((a, b) => (a.year !== b.year) ? b.year - a.year : b.month - a.month);
         
-        saveData();
-        showToast(`تۆمارەکە پاشەکەوت کرا بۆ ${MONTHS[m]} ${y}`);
+        saveData(true); // Force immediate save
         
         // Refresh all relevant pages
         renderAnnualPage();
         renderRankingsPage();
         
         closeHistoricalPage();
+        showToast(`تۆمارەکە پاشەکەوت کرا بۆ ${MONTHS[m]} ${y}`);
     } catch (err) {
-        console.error("Error adding historical record:", err);
+        console.error("Historical Record Error:", err);
         showToast("هەڵەیەک ڕوویدا لە کاتی پاشەکەوتکردن");
     }
 }
