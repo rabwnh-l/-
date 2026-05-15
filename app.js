@@ -71,16 +71,97 @@ function normalizeData(d) {
     return d;
 }
 
-function saveData() { 
-    localStorage.setItem('competitionData', JSON.stringify(data)); 
-    // Only Admin can save to Firebase
-    if (dbRef && sessionStorage.getItem('userRole') === 'admin') {
-        dbRef.set(data).then(() => {
-            console.log("Saved to Firebase");
-        }).catch(e => {
-            console.error("Firebase Save Error:", e);
-            showToast("⚠️ نەتوانرا لە سێرڤەر پاشەکەوت بکرێت. (پەیوەندی یان ڕێگەپێدان)");
+// --- Robust Firebase save system (fixes mobile save failures) ---
+
+// Flag to prevent real-time listener from overwriting local data during saves
+let _isSaving = false;
+let _saveDebounceTimer = null;
+let _saveRetryCount = 0;
+const MAX_SAVE_RETRIES = 3;
+const SAVE_DEBOUNCE_MS = 600; // Wait 600ms after last change before pushing to Firebase
+
+// Strip large Base64 photo data before sending to Firebase
+// Photos stay in localStorage only — this prevents timeout on mobile networks
+function stripPhotosForFirebase(d) {
+    const clone = JSON.parse(JSON.stringify(d));
+    if (clone.players && Array.isArray(clone.players)) {
+        clone.players.forEach(p => { p.photo = null; });
+    }
+    // Also strip photos from yesterdayState snapshot
+    if (clone.yesterdayState && Array.isArray(clone.yesterdayState)) {
+        clone.yesterdayState.forEach(p => { p.photo = null; });
+    }
+    // Strip player photos from monthlyResults snapshots
+    if (clone.monthlyResults && Array.isArray(clone.monthlyResults)) {
+        clone.monthlyResults.forEach(r => {
+            if (r.players && Array.isArray(r.players)) {
+                r.players.forEach(p => { if (p.photo) p.photo = null; });
+            }
         });
+    }
+    return clone;
+}
+
+// Merge remote data with local photos (so photos are not lost from listener updates)
+function mergePhotosFromLocal(remoteData) {
+    const localRaw = localStorage.getItem('competitionData');
+    if (!localRaw) return remoteData;
+    try {
+        const localData = JSON.parse(localRaw);
+        if (remoteData.players && localData.players) {
+            const localPhotoMap = {};
+            const localArr = Array.isArray(localData.players) ? localData.players : Object.values(localData.players);
+            localArr.forEach(p => { if (p.photo) localPhotoMap[p.id] = p.photo; });
+            
+            const remoteArr = Array.isArray(remoteData.players) ? remoteData.players : Object.values(remoteData.players);
+            remoteArr.forEach(p => {
+                if (!p.photo && localPhotoMap[p.id]) {
+                    p.photo = localPhotoMap[p.id];
+                }
+            });
+            remoteData.players = remoteArr;
+        }
+    } catch(e) { /* ignore parse errors */ }
+    return remoteData;
+}
+
+function _pushToFirebase() {
+    if (!dbRef || sessionStorage.getItem('userRole') !== 'admin') return;
+    
+    _isSaving = true;
+    const payload = stripPhotosForFirebase(data);
+    
+    dbRef.set(payload).then(() => {
+        console.log("Saved to Firebase");
+        _isSaving = false;
+        _saveRetryCount = 0;
+    }).catch(e => {
+        console.error("Firebase Save Error:", e);
+        _isSaving = false;
+        
+        // Retry on failure (common on mobile networks)
+        if (_saveRetryCount < MAX_SAVE_RETRIES) {
+            _saveRetryCount++;
+            console.log(`Retrying save... attempt ${_saveRetryCount}/${MAX_SAVE_RETRIES}`);
+            setTimeout(_pushToFirebase, 1000 * _saveRetryCount); // Exponential backoff
+        } else {
+            _saveRetryCount = 0;
+            showToast("⚠️ نەتوانرا لە سێرڤەر پاشەکەوت بکرێت. تکایە ئینتەرنێتەکەت بپشکنە.");
+        }
+    });
+}
+
+function saveData() { 
+    // Always save to localStorage immediately (works offline & keeps photos)
+    localStorage.setItem('competitionData', JSON.stringify(data)); 
+    
+    // Debounce Firebase writes — prevents rapid taps from causing overlapping writes
+    if (dbRef && sessionStorage.getItem('userRole') === 'admin') {
+        clearTimeout(_saveDebounceTimer);
+        _saveDebounceTimer = setTimeout(() => {
+            _saveRetryCount = 0;
+            _pushToFirebase();
+        }, SAVE_DEBOUNCE_MS);
     }
 }
 
@@ -89,9 +170,19 @@ let data = normalizeData(loadData());
 // Listener for real-time updates
 if (dbRef) {
     dbRef.on('value', (snapshot) => {
+        // Don't overwrite local data while we're in the middle of saving
+        if (_isSaving) {
+            console.log("Skipping remote update — save in progress");
+            return;
+        }
+        
         const remoteData = snapshot.val();
         if (remoteData) {
-            data = normalizeData(remoteData);
+            // Merge photos from localStorage before applying remote data
+            const merged = mergePhotosFromLocal(remoteData);
+            data = normalizeData(merged);
+            // Also update localStorage with the merged data (so photos persist)
+            localStorage.setItem('competitionData', JSON.stringify(data));
             renderCurrentPage();
         }
     });
