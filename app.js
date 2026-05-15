@@ -71,121 +71,162 @@ function normalizeData(d) {
     return d;
 }
 
-// --- Robust Firebase save system (fixes mobile save failures) ---
-
-// Flag to prevent real-time listener from overwriting local data during saves
+// --- Firebase save system (mobile-safe) ---
 let _isSaving = false;
-let _saveDebounceTimer = null;
-let _saveRetryCount = 0;
-const MAX_SAVE_RETRIES = 3;
-const SAVE_DEBOUNCE_MS = 600; // Wait 600ms after last change before pushing to Firebase
+let _saveTimer = null;
+let _savingTimeout = null;
 
-// Strip large Base64 photo data before sending to Firebase
-// Photos stay in localStorage only — this prevents timeout on mobile networks
-function stripPhotosForFirebase(d) {
-    const clone = JSON.parse(JSON.stringify(d));
-    if (clone.players && Array.isArray(clone.players)) {
-        clone.players.forEach(p => { p.photo = null; });
-    }
-    // Also strip photos from yesterdayState snapshot
-    if (clone.yesterdayState && Array.isArray(clone.yesterdayState)) {
-        clone.yesterdayState.forEach(p => { p.photo = null; });
-    }
-    // Strip player photos from monthlyResults snapshots
-    if (clone.monthlyResults && Array.isArray(clone.monthlyResults)) {
-        clone.monthlyResults.forEach(r => {
-            if (r.players && Array.isArray(r.players)) {
-                r.players.forEach(p => { if (p.photo) p.photo = null; });
-            }
-        });
-    }
-    return clone;
-}
-
-// Merge remote data with local photos (so photos are not lost from listener updates)
-function mergePhotosFromLocal(remoteData) {
-    const localRaw = localStorage.getItem('competitionData');
-    if (!localRaw) return remoteData;
+// Build a lightweight copy for Firebase WITHOUT touching photo data at all.
+// This avoids JSON.parse(JSON.stringify()) of huge Base64 strings.
+function buildFirebasePayload(d) {
     try {
-        const localData = JSON.parse(localRaw);
-        if (remoteData.players && localData.players) {
-            const localPhotoMap = {};
-            const localArr = Array.isArray(localData.players) ? localData.players : Object.values(localData.players);
-            localArr.forEach(p => { if (p.photo) localPhotoMap[p.id] = p.photo; });
-            
-            const remoteArr = Array.isArray(remoteData.players) ? remoteData.players : Object.values(remoteData.players);
-            remoteArr.forEach(p => {
-                if (!p.photo && localPhotoMap[p.id]) {
-                    p.photo = localPhotoMap[p.id];
-                }
+        var payload = {
+            currentMonth: d.currentMonth,
+            currentYear: d.currentYear,
+            viewYear: d.viewYear,
+            yesterdayRanks: d.yesterdayRanks || {},
+            annualStats: d.annualStats || {}
+        };
+        // Players: copy each field except photo
+        if (d.players) {
+            var arr = Array.isArray(d.players) ? d.players : Object.values(d.players);
+            payload.players = arr.map(function(p) {
+                return { id: p.id, name: p.name, points: p.points, wins: p.wins, losses: p.losses, gamesPlayed: p.gamesPlayed, isHidden: p.isHidden || false };
             });
-            remoteData.players = remoteArr;
+        } else {
+            payload.players = [];
         }
-    } catch(e) { /* ignore parse errors */ }
-    return remoteData;
+        // yesterdayState: copy without photos
+        if (d.yesterdayState) {
+            var ys = Array.isArray(d.yesterdayState) ? d.yesterdayState : Object.values(d.yesterdayState);
+            payload.yesterdayState = ys.map(function(p) {
+                return { id: p.id, name: p.name, points: p.points, wins: p.wins, losses: p.losses, gamesPlayed: p.gamesPlayed, isHidden: p.isHidden || false };
+            });
+        } else {
+            payload.yesterdayState = null;
+        }
+        // monthlyResults: copy without player photos
+        if (d.monthlyResults) {
+            var mr = Array.isArray(d.monthlyResults) ? d.monthlyResults : Object.values(d.monthlyResults);
+            payload.monthlyResults = mr.map(function(r) {
+                var copy = {
+                    month: r.month, year: r.year,
+                    winners: r.winners || [], second: r.second || [], third: r.third || [],
+                    fourth: r.fourth || [], fifth: r.fifth || [], sixth: r.sixth || [],
+                    seventh: r.seventh || [], eighth: r.eighth || [], ninth: r.ninth || []
+                };
+                if (r.players) {
+                    var pl = Array.isArray(r.players) ? r.players : Object.values(r.players);
+                    copy.players = pl.map(function(p) {
+                        return { name: p.name, points: p.points, wins: p.wins, losses: p.losses };
+                    });
+                }
+                return copy;
+            });
+        } else {
+            payload.monthlyResults = [];
+        }
+        return payload;
+    } catch(err) {
+        console.error("buildFirebasePayload error:", err);
+        return null;
+    }
 }
 
-function _pushToFirebase() {
+function _pushToFirebase(retryNum) {
     if (!dbRef || sessionStorage.getItem('userRole') !== 'admin') return;
+    retryNum = retryNum || 0;
+    
+    var payload = buildFirebasePayload(data);
+    if (!payload) return;
     
     _isSaving = true;
-    const payload = stripPhotosForFirebase(data);
+    // Safety timeout: never leave _isSaving stuck for more than 10 seconds
+    clearTimeout(_savingTimeout);
+    _savingTimeout = setTimeout(function() { _isSaving = false; }, 10000);
     
-    dbRef.set(payload).then(() => {
-        console.log("Saved to Firebase");
+    dbRef.set(payload).then(function() {
+        console.log("Saved to Firebase OK");
         _isSaving = false;
-        _saveRetryCount = 0;
-    }).catch(e => {
-        console.error("Firebase Save Error:", e);
+        clearTimeout(_savingTimeout);
+    }).catch(function(e) {
+        console.error("Firebase save error:", e);
         _isSaving = false;
-        
-        // Retry on failure (common on mobile networks)
-        if (_saveRetryCount < MAX_SAVE_RETRIES) {
-            _saveRetryCount++;
-            console.log(`Retrying save... attempt ${_saveRetryCount}/${MAX_SAVE_RETRIES}`);
-            setTimeout(_pushToFirebase, 1000 * _saveRetryCount); // Exponential backoff
+        clearTimeout(_savingTimeout);
+        if (retryNum < 2) {
+            setTimeout(function() { _pushToFirebase(retryNum + 1); }, 1500);
         } else {
-            _saveRetryCount = 0;
-            showToast("⚠️ نەتوانرا لە سێرڤەر پاشەکەوت بکرێت. تکایە ئینتەرنێتەکەت بپشکنە.");
+            showToast("⚠️ پاشەکەوت نەکرا. ئینتەرنێت بپشکنە.");
         }
     });
 }
 
 function saveData() { 
-    // Always save to localStorage immediately (works offline & keeps photos)
-    localStorage.setItem('competitionData', JSON.stringify(data)); 
-    
-    // Debounce Firebase writes — prevents rapid taps from causing overlapping writes
+    try {
+        localStorage.setItem('competitionData', JSON.stringify(data)); 
+    } catch(e) {
+        console.error("localStorage save error:", e);
+    }
     if (dbRef && sessionStorage.getItem('userRole') === 'admin') {
-        clearTimeout(_saveDebounceTimer);
-        _saveDebounceTimer = setTimeout(() => {
-            _saveRetryCount = 0;
-            _pushToFirebase();
-        }, SAVE_DEBOUNCE_MS);
+        clearTimeout(_saveTimer);
+        _saveTimer = setTimeout(function() { _pushToFirebase(0); }, 500);
     }
 }
 
-let data = normalizeData(loadData());
+var data = normalizeData(loadData());
+
+// One-time cleanup: remove old photos stored in Firebase from before this fix
+function cleanFirebasePhotos() {
+    if (!dbRef) return;
+    dbRef.once('value').then(function(snap) {
+        var d = snap.val();
+        if (!d || !d.players) return;
+        var players = Array.isArray(d.players) ? d.players : Object.values(d.players);
+        var hasPhotos = players.some(function(p) { return p.photo && typeof p.photo === 'string' && p.photo.length > 100; });
+        if (hasPhotos) {
+            console.log("Cleaning old photos from Firebase...");
+            var cleanPayload = buildFirebasePayload(d);
+            if (cleanPayload) {
+                dbRef.set(cleanPayload).then(function() {
+                    console.log("Firebase photos cleaned.");
+                }).catch(function(e) {
+                    console.error("Photo cleanup failed:", e);
+                });
+            }
+        }
+    }).catch(function(e) { console.error("Cleanup check failed:", e); });
+}
 
 // Listener for real-time updates
 if (dbRef) {
-    dbRef.on('value', (snapshot) => {
-        // Don't overwrite local data while we're in the middle of saving
-        if (_isSaving) {
-            console.log("Skipping remote update — save in progress");
-            return;
-        }
+    dbRef.on('value', function(snapshot) {
+        if (_isSaving) return; // Don't overwrite while saving
         
-        const remoteData = snapshot.val();
-        if (remoteData) {
-            // Merge photos from localStorage before applying remote data
-            const merged = mergePhotosFromLocal(remoteData);
-            data = normalizeData(merged);
-            // Also update localStorage with the merged data (so photos persist)
-            localStorage.setItem('competitionData', JSON.stringify(data));
-            renderCurrentPage();
-        }
+        var remoteData = snapshot.val();
+        if (!remoteData) return;
+        
+        // Restore photos from local data (Firebase won't have them)
+        try {
+            if (remoteData.players && data && data.players) {
+                var localPlayers = Array.isArray(data.players) ? data.players : Object.values(data.players);
+                var photoMap = {};
+                localPlayers.forEach(function(p) { if (p.photo) photoMap[p.id] = p.photo; });
+                
+                var remotePlayers = Array.isArray(remoteData.players) ? remoteData.players : Object.values(remoteData.players);
+                remotePlayers.forEach(function(p) {
+                    if (!p.photo && photoMap[p.id]) p.photo = photoMap[p.id];
+                });
+                remoteData.players = remotePlayers;
+            }
+        } catch(e) { console.error("Photo merge error:", e); }
+        
+        data = normalizeData(remoteData);
+        try { localStorage.setItem('competitionData', JSON.stringify(data)); } catch(e) {}
+        renderCurrentPage();
     });
+    
+    // Run one-time photo cleanup when admin logs in
+    cleanFirebasePhotos();
 }
 
 function renderCurrentPage() {
