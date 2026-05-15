@@ -107,21 +107,17 @@ input {
 
 /* ===== PAGES ===== */
 .page {
-    position: fixed;
-    top: 0;
-    left: 50%;
-    transform: translateX(-50%);
+    position: relative;
     width: 100%;
     max-width: 393px;
-    height: 100%;
-    padding: calc(var(--safe-top) + 20px) 20px 100px;
-    overflow-y: auto;
-    overflow-x: hidden;
+    min-height: 100vh;
+    padding: 20px 20px 140px;
+    margin: 0 auto;
+    overflow-y: visible;
     display: none;
-    -webkit-overflow-scrolling: touch;
-    position: relative;
-    z-index: 10;
+    z-index: 1;
     pointer-events: auto !important;
+    -webkit-overflow-scrolling: touch;
 }
 
 .page.active {

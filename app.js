@@ -94,12 +94,18 @@ function saveData(immediate = false) {
 }
 
 function performFirebaseSave() {
-    const isReady = dbRef && (sessionStorage.getItem('userRole') === 'admin' || sessionStorage.getItem('isLoggedIn') === 'true');
-    if (isReady) {
-        dbRef.set(data).catch(e => {
-            console.error("Sync Error:", e);
-            // Don't show toast for every background sync error to avoid annoying the user
-        });
+    // Priority 1: Firebase Server
+    if (dbRef) {
+        dbRef.set(data)
+            .then(() => console.log("Server Sync Success ✅"))
+            .catch(e => {
+                console.error("Server Sync Failed ❌:", e);
+                // Fallback: Local device only if server fails
+                localStorage.setItem('competitionData', JSON.stringify(data));
+            });
+    } else {
+        // Fallback if offline
+        localStorage.setItem('competitionData', JSON.stringify(data));
     }
 }
 
@@ -112,15 +118,17 @@ function savePhotos() {
 
 let data = normalizeData(loadData());
 
-// Listener for real-time updates
+// Listener for real-time updates - Server is the Master
 if (dbRef) {
     dbRef.on('value', (snapshot) => {
         const remoteData = snapshot.val();
         if (remoteData) {
+            console.log("Remote Update Received from Server");
             data = normalizeData(remoteData);
             
-            // CRITICAL: Don't re-render if user is on an "Input" page 
-            // This prevents buttons from "dying" while being clicked
+            // Sync local storage to match server
+            localStorage.setItem('competitionData', JSON.stringify(data));
+            
             const activeTab = document.querySelector('.tab-item.active');
             const currentTab = activeTab ? activeTab.dataset.tab : '';
             if (currentTab !== 'settings' && currentTab !== 'record') {
@@ -337,37 +345,70 @@ function renderLeaderboard() {
 function renderRecordPage() {
     const grid = document.getElementById('playersGrid');
     if (!grid) return;
-    let html = '';
     
-    // Sort players by points for the record view as well
+    // Use a DocumentFragment for high performance rendering
+    const fragment = document.createDocumentFragment();
+    
     const sorted = [...data.players].filter(p => !p.isHidden);
     
-    sorted.forEach((p, i) => {
+    sorted.forEach((p) => {
         const pointStr = p.points > 0 ? '+' + p.points : '' + p.points;
         const colorClass = p.points > 0 ? 'pos' : (p.points < 0 ? 'neg' : '');
         
-        html += `
-            <div class="record-card premium-glass" id="prc-${p.id}">
-                <div class="record-avatar-box">
-                    ${getAvatarHTML(p, 'record-avatar-large')}
-                </div>
-                <div class="record-main-info">
-                    <div class="record-name">${esc(p.name)}</div>
-                    <div class="record-stats">${p.wins} W · ${p.losses} L · ${p.gamesPlayed} G</div>
-                </div>
-                <div class="record-actions">
-                    <button class="record-btn btn-minus" onclick="recordResultById(${p.id}, 'lose')">
-                        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="3"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                    </button>
-                    <div class="record-score ${colorClass}" id="score-val-${p.id}">${pointStr}</div>
-                    <button class="record-btn btn-plus" onclick="recordResultById(${p.id}, 'win')">
-                        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                    </button>
-                </div>
+        const card = document.createElement('div');
+        card.className = 'record-card premium-glass';
+        card.id = `prc-${p.id}`;
+        card.innerHTML = `
+            <div class="record-avatar-box">
+                ${getAvatarHTML(p, 'record-avatar-large')}
+            </div>
+            <div class="record-main-info">
+                <div class="record-name">${esc(p.name)}</div>
+                <div class="record-stats">${p.wins} W · ${p.losses} L · ${p.gamesPlayed} G</div>
+            </div>
+            <div class="record-actions">
+                <button class="record-btn btn-minus" data-id="${p.id}" data-type="lose">
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="3"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                </button>
+                <div class="record-score ${colorClass}" id="score-val-${p.id}">${pointStr}</div>
+                <button class="record-btn btn-plus" data-id="${p.id}" data-type="win">
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                </button>
             </div>
         `;
+        
+        // Add event listeners directly to bypass onclick delays
+        card.querySelectorAll('.record-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                recordResultById(parseInt(btn.dataset.id), btn.dataset.type);
+            });
+        });
+        
+        fragment.appendChild(card);
     });
-    grid.innerHTML = html;
+    
+    grid.innerHTML = '';
+    grid.appendChild(fragment);
+
+    // Bind Manual Save button if on this page
+    const saveBtn = document.getElementById('btnManualSave');
+    if (saveBtn) {
+        saveBtn.onclick = null; // Remove old listener
+        saveBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            manualSync();
+            
+            // Visual Feedback
+            saveBtn.style.transform = 'scale(0.95)';
+            saveBtn.style.filter = 'brightness(1.2)';
+            setTimeout(() => {
+                saveBtn.style.transform = '';
+                saveBtn.style.filter = '';
+            }, 150);
+        });
+    }
 }
 
 function recordResultById(playerId, type) {
@@ -753,8 +794,9 @@ function renderHistoricalSettings() {
     
     const currY = new Date().getFullYear();
     let yearOptions = '';
-    for (let y = currY + 1; y >= 2020; y--) {
-        yearOptions += `<option value="${y}">${y}</option>`;
+    // Offer years from 2020 up to 3 years in the future
+    for (let y = currY + 3; y >= 2020; y--) {
+        yearOptions += `<option value="${y}" ${y === currY ? 'selected' : ''}>${y}</option>`;
     }
     yearSelect.innerHTML = yearOptions;
     
@@ -871,8 +913,12 @@ function addHistoricalRecord() {
             seventh: getSelected('7'),
             eighth: getSelected('8'),
             ninth: getSelected('9'),
-            players: data.players.map(p => ({ name: p.name, points: 0, wins: 0, losses: 0 }))
+            // Only save active players to keep the record light
+            players: data.players.filter(p => !p.isHidden).map(p => ({ name: p.name, points: 0, wins: 0, losses: 0 }))
         };
+        
+        // Ensure monthlyResults exists
+        if (!data.monthlyResults) data.monthlyResults = [];
         
         // Remove existing record for this month/year if any
         data.monthlyResults = data.monthlyResults.filter(r => !(r.year === y && r.month === m));
