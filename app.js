@@ -19,10 +19,12 @@ function getDefaultData() {
         viewYear: now.getFullYear() // Year currently being viewed on Annual page
     };
 }
+
 function loadData() {
     try { const r = localStorage.getItem('competitionData'); if (r) return JSON.parse(r); } catch(e) {}
     return getDefaultData();
 }
+
 // ===== FIREBASE INIT =====
 let database = null;
 let dbRef = null;
@@ -86,7 +88,7 @@ function saveData() {
 
 let data = normalizeData(loadData());
 
-// Listener for real-time updates
+// LIVE ENGINE: Real-time Firebase sync hook for global layout instances
 if (dbRef) {
     dbRef.on('value', (snapshot) => {
         const remoteData = snapshot.val();
@@ -107,6 +109,7 @@ function renderCurrentPage() {
     if (target === 'rankings') renderRankingsPage();
     if (target === 'settings') renderSettings();
 }
+
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 function getInitial(name) { return name.charAt(0).toUpperCase(); }
 
@@ -147,6 +150,7 @@ function showToast(msg) {
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => t.classList.remove('show'), 2000);
 }
+
 function showModal(title, message, buttons) {
     document.getElementById('modalTitle').textContent = title;
     document.getElementById('modalMessage').textContent = message;
@@ -161,6 +165,7 @@ function showModal(title, message, buttons) {
     });
     document.getElementById('modalOverlay').classList.add('active');
 }
+
 function hideModal() { document.getElementById('modalOverlay').classList.remove('active'); }
 document.getElementById('modalOverlay').addEventListener('click', e => { if (e.target === e.currentTarget) hideModal(); });
 
@@ -205,8 +210,8 @@ function renderLeaderboard() {
 
     const podium = document.getElementById('podiumSection');
     const top3 = sorted.slice(0, 3);
-    const podiumOrder = top3.length >= 3 ? [top3[1], top3[0], top3[2]] : top3;
-    const podiumRanks = top3.length >= 3 ? [2, 1, 3] : top3.map((_, i) => i + 1);
+    const podiumOrder = top3.length >= 2 ? (top3.length >= 3 ? [top3[1], top3[0], top3[2]] : [top3[1], top3[0]]) : top3;
+    const podiumRanks = top3.length >= 2 ? (top3.length >= 3 ? [2, 1, 3] : [2, 1]) : [1];
     const podiumClasses = { 1: 'podium-first', 2: 'podium-second', 3: 'podium-third' };
 
     let podiumHTML = '';
@@ -316,7 +321,6 @@ function resetToday() {
     showModal('Reset Today?', 'Revert points and stats to the state they were in when ranks were last locked.', [
         { text: 'Cancel', class: 'cancel' },
         { text: 'Reset', class: 'danger', action: () => {
-            // Restore players from yesterdayState
             data.players = JSON.parse(JSON.stringify(data.yesterdayState));
             saveData();
             showToast('Stats reverted to last lock! ↩️');
@@ -330,7 +334,6 @@ function renderAnnualPage() {
     const champ = document.getElementById('annualChampions');
     const tally = {};
     
-    // Aggregate ALL winners from ALL years
     data.monthlyResults.forEach(r => {
         r.winners.forEach(w => { tally[w.name] = (tally[w.name] || 0) + 1; });
     });
@@ -354,12 +357,10 @@ function renderAnnualPage() {
         champ.innerHTML = html;
     }
 
-    // --- YEARLY CHAMPIONS SECTION ---
     const yearlyDiv = document.getElementById('yearlyChampions');
     if (data.monthlyResults.length === 0) {
         yearlyDiv.innerHTML = '';
     } else {
-        // Group results by year
         const yearsData = {};
         data.monthlyResults.forEach(r => {
             if (!yearsData[r.year]) yearsData[r.year] = {};
@@ -392,7 +393,6 @@ function renderAnnualPage() {
         yearlyDiv.innerHTML = yHtml;
     }
 
-    // --- YEAR BUTTONS SECTION ---
     const btnGrid = document.getElementById('yearlyButtonsGrid');
     if (data.monthlyResults.length === 0) {
         btnGrid.innerHTML = '';
@@ -416,13 +416,12 @@ function renderAnnualPage() {
     }
 
     const hist = document.getElementById('monthlyHistory');
-    hist.innerHTML = ''; // Keep hidden as we use overlays now
+    hist.innerHTML = '';
 }
 
 function openYearDetail(year) {
     document.getElementById('yearDetailTitle').textContent = `ساڵی ${year}`;
     const container = document.getElementById('yearDetailContent');
-    
     const results = data.monthlyResults.filter(r => r.year === year).sort((a,b) => b.month - a.month);
     
     let hHtml = '';
@@ -457,7 +456,6 @@ function closeYearDetail() {
 
 function calculateAllTimeScores() {
     const scores = {};
-    // Initialize with all current players to ensure they appear
     data.players.forEach(p => { scores[p.name] = 0; });
 
     data.monthlyResults.forEach(res => {
@@ -529,9 +527,7 @@ function showAllTimeRankings() {
 }
 
 function showPlayerAnnualStats(playerName) {
-    const stats = {
-        '1': 0, '2': 0, '3': 0, '4': 0, '5': 0, '6': 0, '7': 0, '8': 0, '9': 0
-    };
+    const stats = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0, '6': 0, '7': 0, '8': 0, '9': 0 };
     
     data.monthlyResults.forEach(res => {
         if (res.winners.some(w => w.name === playerName)) stats['1']++;
@@ -569,13 +565,8 @@ function showPlayerAnnualStats(playerName) {
     });
 
     html += `</div>`;
-    
     document.getElementById('playerStatsContent').innerHTML = html;
     document.getElementById('playerStatsOverlay').classList.add('active');
-}
-
-function changeAnnualYear(dir) {
-    // Logic removed as per user request
 }
 
 // ===== SETTINGS =====
@@ -597,7 +588,6 @@ function renderSettings() {
         </div>`;
     });
     list.innerHTML = html;
-    
     renderHistoricalSettings();
 }
 
@@ -612,7 +602,7 @@ function renderHistoricalSettings() {
     }
     yearSelect.innerHTML = yearOptions;
     
-    highlightExistingMonth(); // Initial check
+    highlightExistingMonth();
     
     const container = document.getElementById('historicalRanksContainer');
     const ranks = [
@@ -728,20 +718,15 @@ function addHistoricalRecord() {
             players: data.players.map(p => ({ name: p.name, points: 0, wins: 0, losses: 0 }))
         };
         
-        // Remove existing record for this month/year if any
         data.monthlyResults = data.monthlyResults.filter(r => !(r.year === y && r.month === m));
         data.monthlyResults.push(record);
-        
-        // Sort: Latest first
         data.monthlyResults.sort((a, b) => (a.year !== b.year) ? b.year - a.year : b.month - a.month);
         
         saveData();
         showToast(`تۆمارەکە پاشەکەوت کرا بۆ ${MONTHS[m]} ${y}`);
         
-        // Refresh all relevant pages
         renderAnnualPage();
         renderRankingsPage();
-        
         closeHistoricalPage();
     } catch (err) {
         console.error("Error adding historical record:", err);
@@ -791,7 +776,6 @@ function endToday() {
         sorted.forEach((p, i) => {
             data.yesterdayRanks[p.id] = i + 1;
         });
-        // Save full state for "Reset Today"
         data.yesterdayState = JSON.parse(JSON.stringify(data.players));
         saveData();
         showToast('ڕیزبەندی ڕۆژانە جێگیر کرا! 🔒');
@@ -976,15 +960,12 @@ function applyPermissions() {
                 tab.style.display = 'none';
             }
         });
-        // Hide admin-only buttons on visible pages
         const btnResetAnnual = document.getElementById('btnResetAnnual');
         if (btnResetAnnual) btnResetAnnual.style.display = 'none';
         
-        // Hide historical record button
         const histBtn = document.querySelector('[onclick="openHistoricalPage()"]');
         if (histBtn) histBtn.parentElement.style.display = 'none';
         
-        // If current page is forbidden, switch to leaderboard
         const activeTab = document.querySelector('.tab-item.active');
         if (activeTab && (activeTab.dataset.tab === 'record' || activeTab.dataset.tab === 'settings')) {
             document.querySelector('.tab-item[data-tab="leaderboard"]').click();
@@ -1006,12 +987,10 @@ function openHistoricalPage() {
 
 function closeHistoricalPage() {
     document.getElementById('pageHistorical').classList.remove('active');
-    // Clear chips when closing
     document.querySelectorAll('.hist-chip input').forEach(cb => {
         cb.checked = false;
         cb.nextElementSibling.classList.remove('active');
     });
-    // Reset highlight
     const select = document.getElementById('histMonth');
     const warning = document.getElementById('histWarning');
     if (select) {
@@ -1037,7 +1016,6 @@ function renderManageMonths() {
         return;
     }
 
-    // Group by year
     const grouped = {};
     data.monthlyResults.forEach(res => {
         if (!grouped[res.year]) grouped[res.year] = [];
@@ -1045,7 +1023,6 @@ function renderManageMonths() {
     });
 
     let html = '';
-    // Show newest years first
     const years = Object.keys(grouped).sort((a, b) => b - a);
     
     years.forEach(year => {
@@ -1053,7 +1030,6 @@ function renderManageMonths() {
             <div style="font-size: 18px; font-weight: 800; color: var(--accent2); margin-bottom: 12px; padding-left: 4px; border-left: 4px solid var(--accent);">${year}</div>
             <div style="display: flex; flex-direction: column; gap: 8px;">`;
         
-        // Show months in year (newest first)
         grouped[year].sort((a, b) => b.month - a.month).forEach(res => {
             const winners = res.winners.map(w => w.name).join(', ');
             html += `<div class="month-history-card" style="display:flex; justify-content:space-between; align-items:center; gap:12px; background: rgba(255,255,255,0.7); border: 1px solid rgba(0,0,0,0.05);">
@@ -1094,20 +1070,15 @@ function editMonth(m, y) {
     const res = data.monthlyResults.find(r => r.month === m && r.year === y);
     if (!res) return;
 
-    // Open historical page
     openHistoricalPage();
-    
-    // Set year and month
     document.getElementById('histYear').value = y;
     document.getElementById('histMonth').value = m;
 
-    // Reset all chips first
     document.querySelectorAll('.hist-chip input').forEach(cb => {
         cb.checked = false;
         cb.nextElementSibling.classList.remove('active');
     });
 
-    // Helper to check chips for a rank
     const checkChips = (rankKey, winnerList) => {
         if (!winnerList) return;
         winnerList.forEach(w => {
@@ -1134,7 +1105,6 @@ function editMonth(m, y) {
 }
 
 // ===== INIT =====
-// One-time fix: set current month to مانگی 5 (index 4)
 if (!localStorage.getItem('monthFixApplied')) {
     data.currentMonth = 4;
     saveData();
