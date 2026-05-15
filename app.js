@@ -1,3 +1,15 @@
+window.onerror = function(msg, url, lineNo, columnNo, error) {
+    const message = [
+        'Message: ' + msg,
+        'Line: ' + lineNo,
+        'Column: ' + columnNo,
+        'Error object: ' + JSON.stringify(error)
+    ].join('\n');
+    console.error(message);
+    if (typeof showToast === 'function') showToast("Error: " + msg);
+    return false;
+};
+
 // ===== DATA =====
 const MONTHS = ['مانگی 1','مانگی 2','مانگی 3','مانگی 4','مانگی 5','مانگی 6','مانگی 7','مانگی 8','مانگی 9','مانگی 10','مانگی 11','مانگی 12'];
 const DEFAULT_NAMES = ['Player 1','Player 2','Player 3','Player 4','Player 5','Player 6','Player 7','Player 8'];
@@ -20,9 +32,24 @@ function getDefaultData() {
     };
 }
 function loadData() {
-    try { const r = localStorage.getItem('competitionData'); if (r) return JSON.parse(r); } catch(e) {}
+    try { 
+        const r = localStorage.getItem('competitionData'); 
+        if (r) {
+            let d = JSON.parse(r);
+            // Prune extremely large legacy photos that crash mobile
+            if (d.players) {
+                d.players.forEach(p => {
+                    if (p.photo && p.photo.length > 300000) {
+                        p.photo = null; // Clear if too big, user can re-upload
+                    }
+                });
+            }
+            return d;
+        }
+    } catch(e) {}
     return getDefaultData();
 }
+
 
 // Global state for sync optimization
 let isSyncingLocal = false;
@@ -113,19 +140,19 @@ let data = normalizeData(loadData());
 // Listener for real-time updates
 if (dbRef) {
     dbRef.on('value', (snapshot) => {
-        if (isSyncingLocal) return; // Skip updates triggered by us
+        if (isSyncingLocal) return; 
         
         const remoteData = snapshot.val();
         if (remoteData) {
             const newData = normalizeData(remoteData);
-            // Simple check to see if we actually need to update
-            if (JSON.stringify(newData) !== JSON.stringify(data)) {
-                data = newData;
-                renderCurrentPage();
-            }
+            // Faster check: compare version or length if possible, or just a few keys
+            // For now, let's just do a less frequent check or assume remote is newer
+            data = newData;
+            renderCurrentPage();
         }
     });
 }
+
 
 
 function renderCurrentPage() {
