@@ -12,7 +12,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    
+
     <title>Competition Tracker</title>
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Vazirmatn:wght@400;700;900&display=swap"
@@ -87,12 +87,14 @@
         </button>
         <button class="tab-item" data-tab="rankings">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
-                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                <path
+                    d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
             </svg>
             <span>پلەکان</span>
         </button>
         <button class="tab-item" data-tab="chat">
-            <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20">
+            <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20"
+                height="20">
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
             </svg>
             <span>دەمەتەقێ</span>
@@ -140,9 +142,10 @@
             </button>
         </header>
         <div class="players-grid" id="playersGrid"></div>
-        
+
         <div style="margin-top: 32px; padding: 0 10px;">
-            <button id="btnManualSave" class="action-btn save-names-btn" style="height: 56px; border-radius: 18px; font-size: 16px; box-shadow: 0 8px 24px rgba(0,122,255,0.3); position: relative; overflow: hidden;">
+            <button id="btnManualSave" class="action-btn save-names-btn"
+                style="height: 56px; border-radius: 18px; font-size: 16px; box-shadow: 0 8px 24px rgba(0,122,255,0.3); position: relative; overflow: hidden;">
                 پاشەکەوتکردنی خاڵەکان ☁️
             </button>
         </div>
@@ -330,11 +333,11 @@
                 <p class="page-subtitle">نامەکان دوای ٢٤ کاتژمێر دەسڕێنەوە</p>
             </div>
             <div style="display:flex; gap:6px;">
-                <button id="btnAdminChatActions" class="action-btn" onclick="toggleAdminChatMenu()" 
+                <button id="btnAdminChatActions" class="action-btn" onclick="toggleAdminChatMenu()"
                     style="display:none; width:auto; padding:8px 12px; font-size:12px; margin-bottom:0; background:var(--surface2);">
                     ⚙️ کۆنترۆڵ
                 </button>
-                <button id="btnDeleteSelectedChat" class="action-btn danger-btn" onclick="deleteSelectedMessages()" 
+                <button id="btnDeleteSelectedChat" class="action-btn danger-btn" onclick="deleteSelectedMessages()"
                     style="display:none; width:auto; padding:8px 12px; font-size:12px; margin-bottom:0;">
                     سڕینەوە
                 </button>
@@ -342,12 +345,19 @@
         </header>
 
         <!-- Admin Chat Menu Overlay -->
-        <div id="adminChatMenu" style="display:none; background:var(--glass); backdrop-filter:blur(20px); padding:16px; border-radius:var(--radius); border:1px solid var(--glass-border); margin-bottom:12px;">
-            <div style="font-size:13px; font-weight:700; margin-bottom:12px; color:var(--accent2);">کۆنترۆڵی ئەدمین</div>
+        <div id="adminChatMenu"
+            style="display:none; background:var(--glass); backdrop-filter:blur(20px); padding:16px; border-radius:var(--radius); border:1px solid var(--glass-border); margin-bottom:12px;">
+            <div style="font-size:13px; font-weight:700; margin-bottom:12px; color:var(--accent2);">کۆنترۆڵی ئەدمین
+            </div>
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
-                <button class="action-btn" onclick="setChatLock(true)" style="background:rgba(255,152,0,0.1); color:#f57c00; font-size:11px; margin-bottom:0;">داخستنی چات</button>
-                <button class="action-btn" onclick="setChatLock(false)" style="background:rgba(76,175,80,0.1); color:#388e3c; font-size:11px; margin-bottom:0;">کردنەوەی چات</button>
-                <button class="action-btn danger-btn" onclick="clearAllChat()" style="grid-column: 1 / -1; font-size:11px; margin-bottom:0;">سڕینەوەی هەموو نامەکان 🗑️</button>
+                <button class="action-btn" onclick="setChatLock(true)"
+                    style="background:rgba(255,152,0,0.1); color:#f57c00; font-size:11px; margin-bottom:0;">داخستنی
+                    چات</button>
+                <button class="action-btn" onclick="setChatLock(false)"
+                    style="background:rgba(76,175,80,0.1); color:#388e3c; font-size:11px; margin-bottom:0;">کردنەوەی
+                    چات</button>
+                <button class="action-btn danger-btn" onclick="clearAllChat()"
+                    style="grid-column: 1 / -1; font-size:11px; margin-bottom:0;">سڕینەوەی هەموو نامەکان 🗑️</button>
             </div>
         </div>
         <div id="chatContainer" style="display: flex; flex-direction: column; gap: 12px; padding-bottom: 80px;">
