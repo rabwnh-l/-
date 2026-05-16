@@ -1624,22 +1624,43 @@ function manualSync() {
 
 // ===== BACKUP & RESTORE =====
 function exportData() {
-    const backup = {
-        timestamp: new Date().toISOString(),
-        version: "1.2",
-        competitionData: data,
-        playerPhotos: playerPhotos
-    };
-    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `competition_backup_${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    showToast("داتاکە بەسەرکەوتوویی پاشەکەوت کرا! 📥");
+    try {
+        const backup = {
+            timestamp: new Date().toISOString(),
+            version: "1.2",
+            competitionData: data,
+            playerPhotos: playerPhotos
+        };
+        const json = JSON.stringify(backup, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const fileName = `competition_backup_${new Date().toISOString().split('T')[0]}.json`;
+
+        // Mobile-friendly download approach
+        if (window.navigator && window.navigator.msSaveOrOpenBlob) {
+            window.navigator.msSaveOrOpenBlob(blob, fileName);
+        } else {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = fileName;
+            a.target = '_blank'; // Helpful for some mobile browsers
+            document.body.appendChild(a);
+            
+            // Short delay helps some mobile browsers
+            setTimeout(() => {
+                a.click();
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }, 100);
+            }, 0);
+        }
+        showToast("داتاکە پاشەکەوت کرا! 📥");
+    } catch (err) {
+        console.error("Export Error:", err);
+        showToast("هەڵەیەک لە پاشەکەوتکردن ڕوویدا");
+    }
 }
 
 function triggerImport() {
