@@ -83,6 +83,7 @@ function normalizeData(d) {
     return d;
 }
 
+let isInitialLoadDone = false;
 let saveTimeout = null;
 function saveData(immediate = false) { 
     localStorage.setItem('competitionData', JSON.stringify(data)); 
@@ -94,6 +95,18 @@ function saveData(immediate = false) {
 }
 
 function performFirebaseSave() {
+    // SECURITY: Only admins can push data to Firebase
+    if (sessionStorage.getItem('userRole') !== 'admin') {
+        console.log("Firebase sync skipped: User is not admin.");
+        return;
+    }
+    
+    // DATA PROTECTION: Don't overwrite the server until we've received the latest data from it
+    if (!isInitialLoadDone) {
+        console.warn("Firebase sync skipped: Initial server load not yet complete.");
+        return;
+    }
+
     // Priority 1: Firebase Server
     if (dbRef) {
         dbRef.set(data)
@@ -122,6 +135,7 @@ let data = normalizeData(loadData());
 if (dbRef) {
     dbRef.on('value', (snapshot) => {
         const remoteData = snapshot.val();
+        isInitialLoadDone = true; // Mark that we've heard from the server
         if (remoteData) {
             console.log("Remote Update Received from Server");
             data = normalizeData(remoteData);
@@ -1374,12 +1388,6 @@ function editMonth(m, y) {
 }
 
 // ===== INIT =====
-// One-time fix: set current month to مانگی 5 (index 4)
-if (!localStorage.getItem('monthFixApplied')) {
-    data.currentMonth = 4;
-    saveData();
-    localStorage.setItem('monthFixApplied', 'true');
-}
 checkAuth();
 renderLeaderboard();
 renderSettings();
@@ -1612,4 +1620,83 @@ function manualSync() {
     }
     saveData(true); // Force immediate sync
     showToast("هەموو خاڵەکان پاشەکەوت کران! ✅");
+}
+
+// ===== BACKUP & RESTORE =====
+function exportData() {
+    const backup = {
+        timestamp: new Date().toISOString(),
+        version: "1.2",
+        competitionData: data,
+        playerPhotos: playerPhotos
+    };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `competition_backup_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast("داتاکە بەسەرکەوتوویی پاشەکەوت کرا! 📥");
+}
+
+function triggerImport() {
+    if (sessionStorage.getItem('userRole') !== 'admin') {
+        showToast("تەنها ئەدمین دەتوانێت داتا بگەرێنێتەوە");
+        return;
+    }
+    document.getElementById('importFileInput').click();
+}
+
+function importData(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const backup = JSON.parse(e.target.result);
+            if (!backup.competitionData) {
+                throw new Error("Invalid backup file structure");
+            }
+
+            showModal('گەڕانەوەی داتا؟', 'ئایا دڵنیایت لە گەڕانەوەی ئەم داتایە؟ هەموو زانیارییەکانی ئێستا دەسڕێنەوە و ئەم داتایە جێگەیان دەگرێتەوە.', [
+                { text: 'پاشگەزبوونەوە', class: 'cancel' },
+                { text: 'بەڵێ، گەڕانەوە', class: 'danger', action: () => {
+                    // Update main data
+                    data = normalizeData(backup.competitionData);
+                    
+                    // Update photos if present in backup
+                    if (backup.playerPhotos) {
+                        playerPhotos = backup.playerPhotos;
+                    }
+                    
+                    // Important: Mark load as done so we can push to Firebase
+                    isInitialLoadDone = true; 
+                    
+                    // Save everything
+                    saveData(true);
+                    savePhotos();
+                    
+                    showToast("داتاکە بەسەرکەوتوویی گەڕایەوە! 📤");
+                    
+                    // Refresh UI
+                    renderLeaderboard();
+                    renderSettings();
+                    renderAnnualPage();
+                    renderRankingsPage();
+                    
+                    // Reset file input
+                    event.target.value = '';
+                }}
+            ]);
+        } catch (err) {
+            console.error("Import Error:", err);
+            showToast("هەڵەیەک لە فایلی پاشەکەوتەکەدا هەیە!");
+            event.target.value = '';
+        }
+    };
+    reader.readAsText(file);
 }

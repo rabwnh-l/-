@@ -277,6 +277,24 @@
                 <button class="action-btn danger-btn" id="btnResetAll" style="margin-top:24px">سفرکردنەوەی هەموو
                     شتێک</button>
             </div>
+
+            <div class="settings-section">
+                <h2 class="settings-section-title">پاشەکەوت و گەڕانەوە</h2>
+                <p class="page-subtitle" style="margin-bottom: 12px; text-align: right;">پاشەکەوتکردنی هەموو زانیارییەکان و وێنەکان بۆ ناو ئامێرەکەت.</p>
+                <button class="action-btn" onclick="exportData()" style="background:var(--surface3); color:var(--text); border:1px solid rgba(0,0,0,0.1); margin-bottom: 12px;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" style="margin-left:8px">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                    </svg>
+                    پاشەکەوتکردنی داتا (Backup)
+                </button>
+                <button class="action-btn" onclick="triggerImport()" style="background:var(--surface3); color:var(--text); border:1px solid rgba(0,0,0,0.1);">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" style="margin-left:8px">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                    </svg>
+                    گەڕانەوەی داتا (Restore)
+                </button>
+                <input type="file" id="importFileInput" accept=".json" style="display:none" onchange="importData(event)">
+            </div>
         </div>
     </main>
 
